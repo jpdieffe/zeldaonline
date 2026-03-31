@@ -1,0 +1,1 @@
+import{_n as e}from"./index-CiFPSq_l.js";export{e as particlesVertexShaderWGSL};

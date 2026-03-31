@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zelda Online</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+
+    #renderCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: none;
+      outline: none;
+    }
+
+    /* ── Crosshair ── */
+    #crosshair {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 24px;
+      height: 24px;
+      pointer-events: none;
+      z-index: 10;
+    }
+    #crosshair::before,
+    #crosshair::after {
+      content: '';
+      position: absolute;
+      background: rgba(255, 255, 255, 0.45);
+      border-radius: 1px;
+    }
+    #crosshair::before {
+      top: 50%; left: 2px; right: 2px; height: 2px;
+      transform: translateY(-50%);
+    }
+    #crosshair::after {
+      left: 50%; top: 2px; bottom: 2px; width: 2px;
+      transform: translateX(-50%);
+    }
+
+    /* ── Lobby ── */
+    #lobby {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 5, 20, 0.95);
+      z-index: 50;
+      gap: 1.2rem;
+      font-family: system-ui, sans-serif;
+      color: #cdf;
+    }
+    #lobby h1 { font-size: 2.4rem; letter-spacing: 0.06em; }
+    #lobby p  { font-size: 0.9rem; opacity: 0.6; }
+    .lobbyBtn {
+      padding: 0.7rem 2.4rem;
+      font-size: 1.05rem;
+      font-weight: 700;
+      border-radius: 8px;
+      cursor: pointer;
+      letter-spacing: 0.04em;
+      transition: background 0.15s;
+    }
+    #soloBtn {
+      border: 2px solid #6af;
+      background: rgba(60, 120, 255, 0.18);
+      color: #9df;
+    }
+    #soloBtn:hover { background: rgba(60, 120, 255, 0.35); }
+    #hostBtn {
+      border: 2px solid #6f6;
+      background: rgba(60, 200, 60, 0.15);
+      color: #9f9;
+    }
+    #hostBtn:hover { background: rgba(60, 200, 60, 0.3); }
+    #joinBtn {
+      border: 2px solid #6af;
+      background: rgba(60, 120, 255, 0.18);
+      color: #9df;
+    }
+    #joinBtn:hover { background: rgba(60, 120, 255, 0.35); }
+    #joinInput {
+      padding: 0.55rem 0.8rem;
+      font-size: 1rem;
+      border: 2px solid #6af;
+      border-radius: 8px;
+      background: rgba(30, 40, 80, 0.7);
+      color: #cdf;
+      width: 10rem;
+      text-align: center;
+    }
+
+    /* ── Room display ── */
+    #roomDisplay {
+      display: none;
+      position: fixed;
+      top: 1.5rem;
+      right: 1.5rem;
+      background: rgba(0, 10, 40, 0.85);
+      border: 1px solid #6f6;
+      border-radius: 10px;
+      padding: 0.4rem 1.2rem;
+      color: #9f9;
+      font: bold 0.95rem system-ui, sans-serif;
+      z-index: 15;
+      letter-spacing: 0.04em;
+    }
+
+    /* ── HUD ── */
+    #hud {
+      position: fixed;
+      bottom: 0.9rem;
+      left: 50%;
+      transform: translateX(-50%);
+      pointer-events: none;
+      color: rgba(255, 255, 255, 0.42);
+      font-family: system-ui, sans-serif;
+      font-size: 0.78rem;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="renderCanvas" tabindex="0"></canvas>
+
+  <!-- Lobby -->
+  <div id="lobby">
+    <h1>⚔️ Zelda Online</h1>
+
+    <button id="soloBtn" class="lobbyBtn">Solo Play</button>
+
+    <div style="display:flex; gap:0.6rem; align-items:center;">
+      <button id="hostBtn" class="lobbyBtn">Host Game</button>
+      <input  id="joinInput" type="text" placeholder="Room code" />
+      <button id="joinBtn" class="lobbyBtn">Join</button>
+    </div>
+
+    <p>WASD move · Shift sprint · Space jump · Q roll · Left-click attack · Right-click defend</p>
+  </div>
+
+  <!-- Crosshair -->
+  <div id="crosshair"></div>
+
+  <!-- Room code display -->
+  <div id="roomDisplay"></div>
+
+  <!-- Controls hint -->
+  <div id="hud">
+    WASD move &nbsp;·&nbsp; Shift sprint &nbsp;·&nbsp; Space jump &nbsp;·&nbsp; Q roll &nbsp;·&nbsp; Left-click attack &nbsp;·&nbsp; Right-click defend &nbsp;·&nbsp; Scroll zoom
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

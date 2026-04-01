@@ -148,6 +148,7 @@ export class Player {
   private sprinting = false
   private dashing = false
   private dashDir = Vector3.Zero()
+  private dashStartPos = Vector3.Zero()
 
   // Debug mode
   private debugMode = false
@@ -629,6 +630,13 @@ export class Player {
     if (this.attackLockTimer > 0) {
       this.attackLockTimer -= dt
       if (this.attackLockTimer <= 0) {
+        // Snap back to start position after dash
+        if (this.dashing) {
+          this.position.x = this.dashStartPos.x
+          this.position.z = this.dashStartPos.z
+          this.velocity.x = 0
+          this.velocity.z = 0
+        }
         this.attackLock = false
         this.rolling = false
         this.dashing = false
@@ -670,6 +678,7 @@ export class Player {
     this.attackLock = true
     this.attackLockTimer = duration
     this.dashing = true
+    this.dashStartPos = this.position.clone()
     // Capture facing direction for the dash lunge
     const dx = this.position.x - this.camera.position.x
     const dz = this.position.z - this.camera.position.z

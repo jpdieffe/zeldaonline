@@ -1,0 +1,1 @@
+import{B as e}from"./index-BZU9nVGp.js";export{e as geometryVertexShaderWGSL};

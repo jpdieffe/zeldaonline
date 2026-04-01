@@ -276,6 +276,12 @@ export class Player {
     if (this.mouseLeft && !this.attackLock && this.onGround && !this.swimming) {
       this.startAttack()
     }
+    // Air attack: sword_attack_c while airborne
+    if (this.mouseLeft && !this.attackLock && !this.onGround && !this.swimming) {
+      this.attackLock = true
+      this.attackLockTimer = (this.animDurations.get('sword_attack_c') ?? 0.7) * 0.7
+      this.playAnim('sword_attack_c')
+    }
 
     // ── Defend ────────────────────────────────────────────────────────────
     this.isDefending = this.mouseRight && this.onGround && !this.attackLock && !this.swimming

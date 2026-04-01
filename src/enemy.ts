@@ -10,6 +10,7 @@ import {
   Color3,
   StandardMaterial,
 } from '@babylonjs/core'
+import type { EnemyNetState } from './types'
 
 // ── Enemy type definitions ──────────────────────────────────────────────────
 type EnemyAnim = 'idle' | 'walk' | 'bite' | 'death'
@@ -70,8 +71,26 @@ const AGGRO_RANGE = 25
 const DEAGGRO_RANGE = 35
 const RESPAWN_TIME = 10
 
-function rand(lo: number, hi: number): number { return lo + Math.random() * (hi - lo) }
-function randInt(lo: number, hi: number): number { return Math.floor(rand(lo, hi + 1)) }
+// Seeded PRNG (mulberry32)
+function mulberry32(seed: number) {
+  return () => {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed)
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t
+    return ((t ^ t >>> 14) >>> 0) / 4294967296
+  }
+}
+
+function hashSeed(str: string): number {
+  let h = 0
+  for (let i = 0; i < str.length; i++) {
+    h = ((h << 5) - h + str.charCodeAt(i)) | 0
+  }
+  return h
+}
+
+function rand(lo: number, hi: number, rng = Math.random): number { return lo + rng() * (hi - lo) }
+function randInt(lo: number, hi: number, rng = Math.random): number { return Math.floor(rand(lo, hi + 1, rng)) }
 
 // ── Single Enemy ────────────────────────────────────────────────────────────
 export class Enemy {
@@ -106,16 +125,16 @@ export class Enemy {
   private flashTimer = 0
   private originalColors = new Map<AbstractMesh, Color3>()
 
-  constructor(scene: Scene, ground: GroundMesh, typeDef: EnemyTypeDef, spawnPos: Vector3) {
+  constructor(scene: Scene, ground: GroundMesh, typeDef: EnemyTypeDef, spawnPos: Vector3, rng: () => number = Math.random) {
     this.scene = scene
     this.ground = ground
     this.typeDef = typeDef
     this.spawnPos = spawnPos.clone()
     this.position = spawnPos.clone()
 
-    this.scale = rand(typeDef.scale[0], typeDef.scale[1])
-    this.speed = rand(typeDef.speed[0], typeDef.speed[1])
-    this.maxHealth = randInt(typeDef.health[0], typeDef.health[1])
+    this.scale = rand(typeDef.scale[0], typeDef.scale[1], rng)
+    this.speed = rand(typeDef.speed[0], typeDef.speed[1], rng)
+    this.maxHealth = randInt(typeDef.health[0], typeDef.health[1], rng)
     this.health = this.maxHealth
     this.hitRadius = typeDef.hitRadius * this.scale
     this.damage = typeDef.damage
@@ -351,6 +370,44 @@ export class Enemy {
   getHealth(): number { return this.health }
   getMaxHealth(): number { return this.maxHealth }
 
+  getNetState(): EnemyNetState {
+    return {
+      x: this.position.x, z: this.position.z,
+      ry: this.facingY, anim: this.currentAnim, hp: this.health,
+    }
+  }
+
+  applyNetState(s: EnemyNetState) {
+    if (!this.loaded) return
+    this.position.x = s.x
+    this.position.z = s.z
+    this.position.y = this.getGroundY(s.x, s.z)
+    this.facingY = s.ry
+    // Sync health
+    if (s.hp < this.health && !this.dead) {
+      this.flashRed()
+    }
+    this.health = s.hp
+    if (s.hp <= 0 && !this.dead) {
+      this.dead = true
+      this.state = 'dead'
+      this.deathTimer = RESPAWN_TIME
+    }
+    if (s.hp > 0 && this.dead) {
+      this.dead = false
+      this.state = 'idle'
+    }
+    // Sync animation
+    const anim = s.anim as EnemyAnim
+    this.playAnim(anim)
+    // Sync pivots
+    for (const entry of Object.values(this.entries)) {
+      if (!entry) continue
+      entry.pivot.position.copyFrom(this.position)
+      entry.pivot.rotation.y = this.facingY
+    }
+  }
+
   dispose() {
     const disposed = new Set<TransformNode>()
     for (const entry of Object.values(this.entries)) {
@@ -366,18 +423,19 @@ export class Enemy {
 export class EnemyManager {
   private enemies: Enemy[] = []
 
-  constructor(scene: Scene, ground: GroundMesh, count = 20) {
+  constructor(scene: Scene, ground: GroundMesh, count = 20, seed?: string) {
+    const rng = seed ? mulberry32(hashSeed(seed)) : Math.random
     const GROUND_SIZE = 200
     const half = GROUND_SIZE / 2 - 10
 
     for (let i = 0; i < count; i++) {
-      const typeDef = ENEMY_TYPES[Math.floor(Math.random() * ENEMY_TYPES.length)]
-      const x = rand(-half, half)
-      const z = rand(-half, half)
+      const typeDef = ENEMY_TYPES[Math.floor(rng() * ENEMY_TYPES.length)]
+      const x = rand(-half, half, rng)
+      const z = rand(-half, half, rng)
       const y = ground.getHeightAtCoordinates(x, z) ?? 0
       // Skip spawning in water
       if (y < -0.2) { count++; continue }
-      const enemy = new Enemy(scene, ground, typeDef, new Vector3(x, y, z))
+      const enemy = new Enemy(scene, ground, typeDef, new Vector3(x, y, z), rng)
       this.enemies.push(enemy)
     }
   }
@@ -403,4 +461,14 @@ export class EnemyManager {
   }
 
   getEnemies(): Enemy[] { return this.enemies }
+
+  getNetStates(): EnemyNetState[] {
+    return this.enemies.map(e => e.getNetState())
+  }
+
+  applyNetStates(states: EnemyNetState[]) {
+    for (let i = 0; i < states.length && i < this.enemies.length; i++) {
+      this.enemies[i].applyNetState(states[i])
+    }
+  }
 }

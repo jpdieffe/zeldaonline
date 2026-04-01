@@ -1,6 +1,6 @@
 import Peer from 'peerjs'
 import type { DataConnection } from 'peerjs'
-import type { NetMessage, PlayerState } from './types'
+import type { NetMessage, PlayerState, EnemyNetState } from './types'
 
 const PEER_SERVER = {
   host: '0.peerjs.com',
@@ -113,6 +113,8 @@ export class Network {
       const msg = raw as NetMessage
       if (msg.type === 'state') {
         this.lastRemoteState = msg.state
+      } else if (msg.type === 'enemies') {
+        this.lastEnemyStates = msg.enemies
       }
     })
     conn.on('close', () => { this.conn = null })
@@ -125,6 +127,15 @@ export class Network {
       this.conn.send(msg)
     }
   }
+
+  sendEnemies(enemies: EnemyNetState[]) {
+    if (this.conn?.open) {
+      const msg: NetMessage = { type: 'enemies', enemies }
+      this.conn.send(msg)
+    }
+  }
+
+  lastEnemyStates: EnemyNetState[] | null = null
 
   isConnected(): boolean {
     return this.conn?.open ?? false

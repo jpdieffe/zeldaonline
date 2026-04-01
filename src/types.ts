@@ -20,5 +20,11 @@ export interface PlayerState {
 }
 
 /** Network message envelope */
+export interface EnemyNetState {
+  x: number; z: number; ry: number
+  anim: string; hp: number
+}
+
 export type NetMessage =
   | { type: 'state'; state: PlayerState }
+  | { type: 'enemies'; enemies: EnemyNetState[] }

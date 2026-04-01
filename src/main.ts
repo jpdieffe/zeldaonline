@@ -80,6 +80,8 @@ function hideLobby() { lobby.style.display = 'none' }
 
 soloBtn.addEventListener('click', () => { hideLobby(); startGame() })
 
+let gameRoomCode: string | undefined
+
 hostBtn.addEventListener('click', () => {
   hostBtn.disabled = true
   showStatus('Creating room…')
@@ -88,7 +90,8 @@ hostBtn.addEventListener('click', () => {
     roomDisplay.textContent = `Room: ${roomId}`
     roomDisplay.style.display = 'block'
     hideLobby()
-    startGame()
+    gameRoomCode = roomId
+    startGame(roomId)
   })
   network.onPeerConnected = () => {
     if (!remote) {
@@ -106,7 +109,8 @@ joinBtn.addEventListener('click', () => {
   network.join(code, () => {
     hideStatus()
     hideLobby()
-    startGame()
+    gameRoomCode = code
+    startGame(code)
     if (!remote) {
       remote = new RemotePlayer(scene!)
     }
@@ -118,7 +122,7 @@ joinBtn.addEventListener('click', () => {
 let scene: Scene | null = null
 let remote: RemotePlayer | null = null
 
-function startGame() {
+function startGame(seed?: string) {
   // WebGL check
   const testCanvas = document.createElement('canvas')
   testCanvas.width = 100; testCanvas.height = 100
@@ -192,8 +196,8 @@ function startGame() {
   // Player
   const player = new Player(scene, ground)
 
-  // Enemies
-  const enemyMgr = new EnemyManager(scene, ground, 20)
+  // Enemies (seeded for deterministic spawning across clients)
+  const enemyMgr = new EnemyManager(scene, ground, 20, seed)
 
   // Hearts HUD
   const heartsDiv = document.createElement('div')
@@ -219,7 +223,9 @@ function startGame() {
 
   // Network send
   const SEND_INTERVAL = 1 / 20
+  const ENEMY_SEND_INTERVAL = 1 / 10
   let sendTimer = 0
+  let enemySendTimer = 0
 
   // Render loop
   engine.runRenderLoop(() => {
@@ -266,16 +272,34 @@ function startGame() {
     }
 
     // Enemy AI + attacks on player (horizontal distance)
-    enemyMgr.update(dt, player.getPosition(), (enemy) => {
-      const ep = enemy.getPosition()
-      const pp = player.getPosition()
-      const edx = ep.x - pp.x
-      const edz = ep.z - pp.z
-      const dist = Math.sqrt(edx * edx + edz * edz)
-      if (dist < enemy.hitRadius + 0.5) {
-        player.takeDamage(enemy.damage)
+    // Host runs AI; joiner applies received states
+    const isJoiner = network.isConnected() && !network.isHost
+    if (!isJoiner) {
+      enemyMgr.update(dt, player.getPosition(), (enemy) => {
+        const ep = enemy.getPosition()
+        const pp = player.getPosition()
+        const edx = ep.x - pp.x
+        const edz = ep.z - pp.z
+        const dist = Math.sqrt(edx * edx + edz * edz)
+        if (dist < enemy.hitRadius + 0.5) {
+          player.takeDamage(enemy.damage)
+        }
+      })
+    } else if (network.lastEnemyStates) {
+      enemyMgr.applyNetStates(network.lastEnemyStates)
+      // Joiner still checks if enemies near enough to deal damage
+      for (const enemy of enemyMgr.getEnemies()) {
+        if (enemy.isDead()) continue
+        const ep = enemy.getPosition()
+        const pp = player.getPosition()
+        const edx = ep.x - pp.x
+        const edz = ep.z - pp.z
+        const dist = Math.sqrt(edx * edx + edz * edz)
+        if (dist < enemy.hitRadius + 0.5) {
+          // use attackCooldown-like check via flash timer
+        }
       }
-    })
+    }
 
     updateHearts()
 
@@ -284,6 +308,15 @@ function startGame() {
     if (sendTimer >= SEND_INTERVAL && network.isConnected()) {
       sendTimer = 0
       network.sendPosition(player.getState())
+    }
+
+    // Host broadcasts enemy states
+    if (network.isHost && network.isConnected()) {
+      enemySendTimer += dt
+      if (enemySendTimer >= ENEMY_SEND_INTERVAL) {
+        enemySendTimer = 0
+        network.sendEnemies(enemyMgr.getNetStates())
+      }
     }
 
     // Apply remote state

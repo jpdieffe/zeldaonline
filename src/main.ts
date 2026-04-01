@@ -320,7 +320,7 @@ function startGame(seed?: string) {
         const dy2 = rp.y - (pp.y + 1.0)
         const dist = Math.sqrt(dx2 * dx2 + dy2 * dy2 + dz2 * dz2)
         if (dist < 1.5) {
-          if (player.isDefending()) {
+          if (player.canBlockFrom(rp)) {
             enemy.deflectProjectile(ri)
           } else {
             player.takeDamage(1)
@@ -349,6 +349,8 @@ function startGame(seed?: string) {
       enemyMgr.update(dt, positions, (enemy) => {
         const ep = enemy.getPosition()
         const pp = player.getPosition()
+        // Shield blocks if attack comes from the front
+        if (player.canBlockFrom(ep)) return
         // Knockback player away from enemy
         const knockDir = pp.subtract(ep)
         knockDir.y = 0

@@ -866,6 +866,21 @@ export class Player {
     return this.isDefendingState
   }
 
+  /** True if defending AND the attack comes from within the frontal shield arc (~120°) */
+  canBlockFrom(attackOrigin: Vector3): boolean {
+    if (!this.isDefendingState) return false
+    // Angle from player to attacker
+    const dx = attackOrigin.x - this.position.x
+    const dz = attackOrigin.z - this.position.z
+    const angleToAttacker = Math.atan2(dx, dz)
+    // Angle difference (wrapped to -PI..PI)
+    let diff = angleToAttacker - this.facingY
+    while (diff > Math.PI) diff -= Math.PI * 2
+    while (diff < -Math.PI) diff += Math.PI * 2
+    // Block if attacker is within ±60° of facing (120° frontal arc)
+    return Math.abs(diff) < Math.PI / 3
+  }
+
   getAttackAnim(): AnimState { return this.currentAnim }
 
   getSwordTip(): Vector3 {
@@ -874,7 +889,7 @@ export class Player {
   }
 
   takeDamage(amount: number) {
-    if (this.dead || this.iframeTimer > 0 || this.isDefendingState) return
+    if (this.dead || this.iframeTimer > 0) return
     this.health -= amount
     this.iframeTimer = 1.0
     this.damageFlashTimer = 0.5

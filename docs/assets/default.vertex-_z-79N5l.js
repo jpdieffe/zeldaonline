@@ -1,0 +1,1 @@
+import{jn as e}from"./index-ui-dGMPG.js";export{e as defaultVertexShader};

@@ -14,6 +14,7 @@ import {
 import { Player } from './player'
 import { Network } from './network'
 import { RemotePlayer } from './remote'
+import { EnemyManager } from './enemy'
 
 const canvas = document.getElementById('renderCanvas') as HTMLCanvasElement
 const network = new Network()
@@ -191,6 +192,29 @@ function startGame() {
   // Player
   const player = new Player(scene, ground)
 
+  // Enemies
+  const enemyMgr = new EnemyManager(scene, ground, 20)
+
+  // Hearts HUD
+  const heartsDiv = document.createElement('div')
+  heartsDiv.id = 'hearts'
+  heartsDiv.style.cssText = 'position:fixed;top:1rem;left:1rem;font-size:1.6rem;z-index:15;pointer-events:none;filter:drop-shadow(0 0 2px rgba(0,0,0,0.6));'
+  document.body.appendChild(heartsDiv)
+
+  function updateHearts() {
+    const hp = player.getHealth()
+    const max = player.getMaxHealth()
+    let s = ''
+    for (let i = 0; i < max; i++) {
+      s += i < hp ? '\u2764\uFE0F' : '\uD83E\uDD0D'
+    }
+    heartsDiv.textContent = s
+  }
+
+  // Track if we already hit enemies this attack swing
+  let hitThisSwing = false
+  let wasAttacking = false
+
   // Network send
   const SEND_INTERVAL = 1 / 20
   let sendTimer = 0
@@ -200,6 +224,27 @@ function startGame() {
     const dt = Math.min(engine!.getDeltaTime() / 1000, 0.05)
 
     player.update(dt)
+
+    // Sword hit detection
+    const attacking = player.isAttacking()
+    if (attacking && !wasAttacking) hitThisSwing = false
+    wasAttacking = attacking
+
+    if (attacking && !hitThisSwing) {
+      const tip = player.getSwordTip()
+      enemyMgr.checkSwordHits(tip, 1)
+      hitThisSwing = true
+    }
+
+    // Enemy AI + attacks on player
+    enemyMgr.update(dt, player.getPosition(), (enemy) => {
+      const dist = Vector3.Distance(enemy.getPosition(), player.getPosition())
+      if (dist < enemy.hitRadius + 1.0) {
+        player.takeDamage(enemy.damage)
+      }
+    })
+
+    updateHearts()
 
     // Send state to peer
     sendTimer += dt

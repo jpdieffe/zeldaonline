@@ -115,6 +115,13 @@ export class Player {
   // Sprint
   private sprinting = false
 
+  // Health
+  private maxHealth = 6
+  private health = 6
+  private dead = false
+  private respawnTimer = 0
+  private iframeTimer = 0  // invincibility after taking damage
+
   constructor(scene: Scene, ground: GroundMesh) {
     this.scene = scene
     this.ground = ground
@@ -270,6 +277,14 @@ export class Player {
 
   // ── Update ────────────────────────────────────────────────────────────────
   update(dt: number) {
+    // Respawn timer
+    if (this.dead) {
+      this.respawnTimer -= dt
+      if (this.respawnTimer <= 0) this.respawn()
+      return
+    }
+    if (this.iframeTimer > 0) this.iframeTimer -= dt
+
     this.updateTimers(dt)
 
     // ── Attack input ──────────────────────────────────────────────────────
@@ -362,9 +377,14 @@ export class Player {
       this.velocity.y = 0
       if (!this.onGround) {
         this.onGround = true
-        this.jumpPhase = 'land'
-        this.jumpPhaseTimer = 0.2
-        this.playAnim('jump_land')
+        // Skip landing anim if mid-attack (air attack finishes first)
+        if (!this.attackLock) {
+          this.jumpPhase = 'land'
+          this.jumpPhaseTimer = 0.2
+          this.playAnim('jump_land')
+        } else {
+          this.jumpPhase = 'none'
+        }
       }
     }
 
@@ -479,4 +499,55 @@ export class Player {
   }
 
   getPosition(): Vector3 { return this.position.clone() }
+
+  isAttacking(): boolean {
+    return this.attackLock && (
+      this.currentAnim === 'sword_attack_a' ||
+      this.currentAnim === 'sword_attack_b' ||
+      this.currentAnim === 'sword_attack_c'
+    )
+  }
+
+  getSwordTip(): Vector3 {
+    if (!this.swordRoot) return this.position.clone()
+    return this.swordRoot.getAbsolutePosition()
+  }
+
+  takeDamage(amount: number) {
+    if (this.dead || this.iframeTimer > 0 || this.isDefending) return
+    this.health -= amount
+    this.iframeTimer = 1.0
+    if (this.health <= 0) {
+      this.health = 0
+      this.die()
+    } else {
+      this.playAnim('hit')
+      this.attackLock = true
+      this.attackLockTimer = 0.5
+    }
+  }
+
+  private die() {
+    this.dead = true
+    this.respawnTimer = 2.0
+    this.playAnim('death')
+    this.velocity.set(0, 0, 0)
+  }
+
+  private respawn() {
+    this.dead = false
+    this.health = this.maxHealth
+    this.position = SPAWN.clone()
+    this.position.y = this.getGroundY(0, 0) + 2
+    this.velocity.set(0, 0, 0)
+    this.onGround = true
+    this.attackLock = false
+    this.attackLockTimer = 0
+    this.iframeTimer = 2.0
+    this.playAnim('idle')
+  }
+
+  getHealth(): number { return this.health }
+  getMaxHealth(): number { return this.maxHealth }
+  isDead(): boolean { return this.dead }
 }

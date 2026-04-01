@@ -1,1 +1,0 @@
-import{Pt as e}from"./index-C4DBZBxC.js";export{e as extractHighlightsPixelShaderWGSL};

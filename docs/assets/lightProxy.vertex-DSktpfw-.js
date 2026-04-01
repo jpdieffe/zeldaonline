@@ -1,0 +1,1 @@
+import{Zn as e}from"./index-ui-dGMPG.js";export{e as lightProxyVertexShaderWGSL};

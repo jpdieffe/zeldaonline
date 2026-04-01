@@ -1,0 +1,1 @@
+import{Vn as e}from"./index-ui-dGMPG.js";export{e as proceduralVertexShader};

@@ -1,0 +1,1 @@
+import{er as e}from"./index-ui-dGMPG.js";export{e as lightProxyPixelShader};

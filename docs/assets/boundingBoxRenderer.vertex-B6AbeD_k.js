@@ -1,0 +1,1 @@
+import{I as e}from"./index-T2A01Lqg.js";export{e as boundingBoxRendererVertexShaderWGSL};

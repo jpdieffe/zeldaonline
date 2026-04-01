@@ -163,6 +163,7 @@ export class Player {
   private respawnTimer = 0
   private iframeTimer = 0  // invincibility after taking damage
   private damageFlashTimer = 0
+  private knockbackTimer = 0
 
   constructor(scene: Scene, ground: GroundMesh) {
     this.scene = scene
@@ -540,33 +541,14 @@ export class Player {
       this.velocity.x = this.rollDir.x * RUN_SPEED
       this.velocity.z = this.rollDir.z * RUN_SPEED
     } else if (this.dashing) {
-      if (this.dashPhase === 'forward') {
-        // Forward: decelerate
-        this.velocity.x *= 0.92
-        this.velocity.z *= 0.92
-        this.dashForwardTime -= dt
-        if (this.dashForwardTime <= 0) {
-          // Switch to reverse phase — pull back to start
-          this.dashPhase = 'reverse'
-          const backDir = this.dashStartPos.subtract(this.position)
-          backDir.y = 0
-          const backDist = backDir.length()
-          if (backDist > 0.1) {
-            const remainTime = this.attackLockTimer
-            const pullSpeed = backDist / Math.max(remainTime, 0.1)
-            backDir.normalize()
-            this.velocity.x = backDir.x * pullSpeed
-            this.velocity.z = backDir.z * pullSpeed
-          }
-          // Play animation in reverse
-          const group = this.animGroups.get('sword_dash')
-          if (group) {
-            group.start(false, -1.0, group.to, group.from, false)
-          }
-        }
-      } else {
-        // Reverse: constant velocity back (no friction)
-      }
+      // Dash decelerates over time (friction)
+      this.velocity.x *= 0.92
+      this.velocity.z *= 0.92
+    } else if (this.knockbackTimer > 0) {
+      // Knockback: decay velocity, don't allow player input to override
+      this.knockbackTimer -= dt
+      this.velocity.x *= 0.92
+      this.velocity.z *= 0.92
     } else {
       this.velocity.x = moveDir.x * speed
       this.velocity.z = moveDir.z * speed
@@ -672,13 +654,6 @@ export class Player {
     if (this.attackLockTimer > 0) {
       this.attackLockTimer -= dt
       if (this.attackLockTimer <= 0) {
-        // Snap back to start position after dash
-        if (this.dashing) {
-          this.position.x = this.dashStartPos.x
-          this.position.z = this.dashStartPos.z
-          this.velocity.x = 0
-          this.velocity.z = 0
-        }
         this.attackLock = false
         this.rolling = false
         this.dashing = false
@@ -716,21 +691,19 @@ export class Player {
   }
 
   private startDashAttack() {
-    const duration = (this.animDurations.get('sword_dash') ?? 0.8) * 0.85
+    const duration = (this.animDurations.get('sword_attack_b') ?? 0.7) * 0.7
     this.attackLock = true
-    this.attackLockTimer = duration * 2  // forward + reverse
+    this.attackLockTimer = duration
+    this.attackDuration = duration
     this.dashing = true
-    this.dashStartPos = this.position.clone()
-    this.dashPhase = 'forward'
-    this.dashForwardTime = duration
     // Capture facing direction for the dash lunge
     const dx = this.position.x - this.camera.position.x
     const dz = this.position.z - this.camera.position.z
     this.dashDir = new Vector3(dx, 0, dz).normalize()
-    // One-time forward lunge impulse (not continuous)
-    this.velocity.x = this.dashDir.x * RUN_SPEED * 1.8
-    this.velocity.z = this.dashDir.z * RUN_SPEED * 1.8
-    this.playAnim('sword_dash')
+    // Forward lunge impulse — 2x speed
+    this.velocity.x = this.dashDir.x * RUN_SPEED * 3.6
+    this.velocity.z = this.dashDir.z * RUN_SPEED * 3.6
+    this.playAnim('sword_attack_b')
   }
 
   private updateAnimation(moving: boolean) {
@@ -886,7 +859,7 @@ export class Player {
   }
 
   isDashing(): boolean {
-    return this.attackLock && this.currentAnim === 'sword_dash'
+    return this.attackLock && this.dashing
   }
 
   isDefending(): boolean {
@@ -920,6 +893,7 @@ export class Player {
     this.velocity.x = dir.x * force
     this.velocity.z = dir.z * force
     this.velocity.y = force * 0.15
+    this.knockbackTimer = 0.5
   }
 
   private applyDamageFlash(on: boolean) {

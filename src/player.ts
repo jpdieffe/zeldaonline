@@ -109,6 +109,8 @@ export class Player {
   private swordGlbRoot: TransformNode | null = null
   private swordTipNode: TransformNode | null = null
   private slashTrail: TrailMesh | null = null
+  private trailMat: StandardMaterial | null = null
+  private trailWidth = 0.35
   swordEquipped = false
 
   // Thrown sword
@@ -128,6 +130,10 @@ export class Player {
 
   // Sprint
   private sprinting = false
+
+  // Debug mode
+  private debugMode = false
+  private debugAttackTimer = 0
 
   // Health
   private maxHealth = 6
@@ -203,6 +209,15 @@ export class Player {
       }
       if (e.key.toLowerCase() === 'r' && this.swordEquipped && !this.thrownActive) {
         this.throwSword()
+      }
+      if (e.key.toLowerCase() === 't') {
+        this.debugMode = !this.debugMode
+        const panel = document.getElementById('debugPanel') as HTMLElement | null
+        if (panel) panel.style.display = this.debugMode ? 'block' : 'none'
+        if (this.debugMode) {
+          this.swordEquipped = true
+          this.setSwordVisible(true)
+        }
       }
     })
     window.addEventListener('keyup', (e) => {
@@ -280,13 +295,13 @@ export class Player {
 
     // Trail mesh follows the tip node
     this.slashTrail = new TrailMesh('slashTrail', this.swordTipNode, this.scene, 0.35, 30, true)
-    const trailMat = new StandardMaterial('slashTrailMat', this.scene)
-    trailMat.emissiveColor = new Color3(0.9, 0.95, 1.0)
-    trailMat.diffuseColor = new Color3(0.7, 0.85, 1.0)
-    trailMat.specularColor = new Color3(0, 0, 0)
-    trailMat.alpha = 0.5
-    trailMat.backFaceCulling = false
-    this.slashTrail.material = trailMat
+    this.trailMat = new StandardMaterial('slashTrailMat', this.scene)
+    this.trailMat.emissiveColor = new Color3(0.9, 0.95, 1.0)
+    this.trailMat.diffuseColor = new Color3(0.7, 0.85, 1.0)
+    this.trailMat.specularColor = new Color3(0, 0, 0)
+    this.trailMat.alpha = 0.5
+    this.trailMat.backFaceCulling = false
+    this.slashTrail.material = this.trailMat
     this.slashTrail.isVisible = false
 
     this.swordMeshes = result.meshes.filter(m => m !== result.meshes[0])
@@ -320,6 +335,15 @@ export class Player {
     if (this.iframeTimer > 0) this.iframeTimer -= dt
 
     this.updateTimers(dt)
+
+    // ── Debug auto-attack ─────────────────────────────────────────────────
+    if (this.debugMode) {
+      this.debugAttackTimer -= dt
+      if (this.debugAttackTimer <= 0 && !this.attackLock) {
+        this.startAttack()
+        this.debugAttackTimer = 0.1 // chain immediately after current finishes
+      }
+    }
 
     // ── Attack input ──────────────────────────────────────────────────────
     if (this.mouseLeft && !this.attackLock && this.onGround && !this.swimming) {
@@ -457,6 +481,21 @@ export class Player {
       const showTrail = this.isAttacking()
       this.slashTrail.isVisible = showTrail
       if (!showTrail) this.slashTrail.start()
+    }
+
+    // ── Debug: apply slider values to swordTipNode ─────────────────────────
+    if (this.debugMode && this.swordTipNode) {
+      const gv = (id: string) => parseFloat((document.getElementById(id) as HTMLInputElement)?.value ?? '0')
+      this.swordTipNode.position.set(gv('dbgTipX'), gv('dbgTipY'), gv('dbgTipZ'))
+      this.swordTipNode.rotation.set(gv('dbgTipRX'), gv('dbgTipRY'), gv('dbgTipRZ'))
+      // Rebuild trail if width changed
+      const newW = gv('dbgTrailW')
+      if (Math.abs(newW - this.trailWidth) > 0.01 && this.slashTrail) {
+        this.trailWidth = newW
+        this.slashTrail.dispose()
+        this.slashTrail = new TrailMesh('slashTrail', this.swordTipNode, this.scene, newW, 30, true)
+        if (this.trailMat) this.slashTrail.material = this.trailMat
+      }
     }
 
     // ── Camera follow ─────────────────────────────────────────────────────

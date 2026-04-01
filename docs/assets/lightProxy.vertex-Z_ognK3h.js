@@ -1,0 +1,1 @@
+import{Zn as e}from"./index-D27volfj.js";export{e as lightProxyVertexShaderWGSL};

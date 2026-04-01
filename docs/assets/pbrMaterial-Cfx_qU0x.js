@@ -1,1 +1,0 @@
-import{jr as e}from"./index-BZU9nVGp.js";export{e as PBRMaterial};

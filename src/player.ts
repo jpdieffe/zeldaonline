@@ -149,6 +149,8 @@ export class Player {
   private dashing = false
   private dashDir = Vector3.Zero()
   private dashStartPos = Vector3.Zero()
+  private dashPhase: 'forward' | 'reverse' = 'forward'
+  private dashForwardTime = 0
 
   // Debug mode
   private debugMode = false
@@ -160,6 +162,7 @@ export class Player {
   private dead = false
   private respawnTimer = 0
   private iframeTimer = 0  // invincibility after taking damage
+  private damageFlashTimer = 0
 
   constructor(scene: Scene, ground: GroundMesh) {
     this.scene = scene
@@ -447,6 +450,21 @@ export class Player {
     }
     if (this.iframeTimer > 0) this.iframeTimer -= dt
 
+    // Damage flash timer — red tint fades, then blink during remaining iframes
+    if (this.damageFlashTimer > 0) {
+      this.damageFlashTimer -= dt
+      if (this.damageFlashTimer <= 0) {
+        this.applyDamageFlash(false)
+      }
+    }
+    // Blink mesh during iframes
+    if (this.iframeTimer > 0 && this.skinMeshSets[this.skinIndex]) {
+      const visible = Math.floor(this.iframeTimer * 10) % 2 === 0
+      for (const m of this.skinMeshSets[this.skinIndex]) m.isVisible = visible
+    } else if (this.skinMeshSets[this.skinIndex]) {
+      for (const m of this.skinMeshSets[this.skinIndex]) m.isVisible = true
+    }
+
     this.updateTimers(dt)
 
     // ── Attack input (requires sword equipped) ───────────────────────────
@@ -522,9 +540,33 @@ export class Player {
       this.velocity.x = this.rollDir.x * RUN_SPEED
       this.velocity.z = this.rollDir.z * RUN_SPEED
     } else if (this.dashing) {
-      // Dash decelerates over time (friction)
-      this.velocity.x *= 0.92
-      this.velocity.z *= 0.92
+      if (this.dashPhase === 'forward') {
+        // Forward: decelerate
+        this.velocity.x *= 0.92
+        this.velocity.z *= 0.92
+        this.dashForwardTime -= dt
+        if (this.dashForwardTime <= 0) {
+          // Switch to reverse phase — pull back to start
+          this.dashPhase = 'reverse'
+          const backDir = this.dashStartPos.subtract(this.position)
+          backDir.y = 0
+          const backDist = backDir.length()
+          if (backDist > 0.1) {
+            const remainTime = this.attackLockTimer
+            const pullSpeed = backDist / Math.max(remainTime, 0.1)
+            backDir.normalize()
+            this.velocity.x = backDir.x * pullSpeed
+            this.velocity.z = backDir.z * pullSpeed
+          }
+          // Play animation in reverse
+          const group = this.animGroups.get('sword_dash')
+          if (group) {
+            group.start(false, -1.0, group.to, group.from, false)
+          }
+        }
+      } else {
+        // Reverse: constant velocity back (no friction)
+      }
     } else {
       this.velocity.x = moveDir.x * speed
       this.velocity.z = moveDir.z * speed
@@ -676,9 +718,11 @@ export class Player {
   private startDashAttack() {
     const duration = (this.animDurations.get('sword_dash') ?? 0.8) * 0.85
     this.attackLock = true
-    this.attackLockTimer = duration
+    this.attackLockTimer = duration * 2  // forward + reverse
     this.dashing = true
     this.dashStartPos = this.position.clone()
+    this.dashPhase = 'forward'
+    this.dashForwardTime = duration
     // Capture facing direction for the dash lunge
     const dx = this.position.x - this.camera.position.x
     const dz = this.position.z - this.camera.position.z
@@ -860,6 +904,8 @@ export class Player {
     if (this.dead || this.iframeTimer > 0 || this.isDefendingState) return
     this.health -= amount
     this.iframeTimer = 1.0
+    this.damageFlashTimer = 0.5
+    this.applyDamageFlash(true)
     if (this.health <= 0) {
       this.health = 0
       this.die()
@@ -867,6 +913,24 @@ export class Player {
       this.playAnim('hit')
       this.attackLock = true
       this.attackLockTimer = 0.5
+    }
+  }
+
+  knockBack(dir: Vector3, force: number) {
+    this.velocity.x = dir.x * force
+    this.velocity.z = dir.z * force
+    this.velocity.y = force * 0.15
+  }
+
+  private applyDamageFlash(on: boolean) {
+    const meshes = this.skinMeshSets[this.skinIndex]
+    if (!meshes) return
+    for (const m of meshes) {
+      if (!m.material) continue
+      const mat = m.material as any
+      if (mat.emissiveColor !== undefined) {
+        mat.emissiveColor = on ? new Color3(1, 0.15, 0.15) : new Color3(0, 0, 0)
+      }
     }
   }
 

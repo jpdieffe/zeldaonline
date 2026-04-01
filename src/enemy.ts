@@ -123,8 +123,13 @@ export class Enemy {
   private deathAnimPlayed = false
 
   // Ranged projectile
-  private projectiles: { mesh: AbstractMesh, pos: Vector3, vel: Vector3, life: number }[] = []
+  private projectiles: { mesh: AbstractMesh, pos: Vector3, vel: Vector3, life: number, bounced: boolean }[] = []
   private netRockMeshes: AbstractMesh[] = []
+
+  // Lunge attack (melee)
+  private lunging = false
+  private lungeVel = Vector3.Zero()
+  private lungeTimer = 0
 
   constructor(scene: Scene, ground: GroundMesh, typeDef: EnemyTypeDef, spawnPos: Vector3, rng: () => number = Math.random) {
     this.scene = scene
@@ -352,16 +357,36 @@ export class Enemy {
       if (dist > this.typeDef.attackRange * this.scale * 1.5) {
         this.state = 'chase'
       } else {
-        this.playAnim('bite')
         if (this.attackCooldown <= 0) {
           this.attackCooldown = this.typeDef.attackCooldown
           if (this.typeDef.isRanged) {
+            this.playAnim('bite')
             const dir = toPlayer.normalize()
             this.spawnRock(dir)
           } else {
+            // Melee: lunge toward player
+            this.lunging = true
+            this.lungeTimer = 0.4
+            const dir = toPlayer.length() > 0.01 ? toPlayer.normalize() : Vector3.Forward()
+            this.lungeVel = dir.scale(this.speed * 4)
+            this.lungeVel.y = 8  // jump arc
+            this.playAnim('bite')
             wantAttack = true
           }
+        } else {
+          this.playAnim(this.lunging ? 'bite' : 'idle')
         }
+      }
+    }
+
+    // Lunge movement
+    if (this.lunging) {
+      this.lungeTimer -= dt
+      this.lungeVel.y -= 20 * dt  // gravity
+      this.position.addInPlace(this.lungeVel.scale(dt))
+      if (this.lungeTimer <= 0) {
+        this.lunging = false
+        this.lungeVel.set(0, 0, 0)
       }
     }
 
@@ -476,7 +501,7 @@ export class Enemy {
     const vel = dir.scale(speed)
     vel.y = 3 // slight arc
 
-    this.projectiles.push({ mesh: rockMesh, pos: spawnPos.clone(), vel: vel.clone(), life: 5 })
+    this.projectiles.push({ mesh: rockMesh, pos: spawnPos.clone(), vel: vel.clone(), life: 5, bounced: false })
   }
 
   private updateProjectiles(dt: number) {
@@ -487,9 +512,25 @@ export class Enemy {
       p.mesh.position.copyFrom(p.pos)
       p.life -= dt
 
-      // Hit ground
+      // Hit ground — bounce or dispose
       const gy = this.getGroundY(p.pos.x, p.pos.z)
-      if (p.pos.y <= gy || p.life <= 0) {
+      if (p.pos.y <= gy) {
+        if (!p.bounced) {
+          // First bounce: reflect Y, dampen heavily
+          p.bounced = true
+          p.pos.y = gy
+          p.vel.y = Math.abs(p.vel.y) * 0.3
+          p.vel.x *= 0.4
+          p.vel.z *= 0.4
+        } else {
+          // Already bounced and hit ground again — dispose
+          p.mesh.dispose()
+          this.projectiles.splice(i, 1)
+          continue
+        }
+      }
+
+      if (p.life <= 0) {
         p.mesh.dispose()
         this.projectiles.splice(i, 1)
       }
@@ -497,8 +538,8 @@ export class Enemy {
   }
 
   /** Get active projectiles for hit detection in main.ts */
-  getProjectiles(): { pos: Vector3, vel: Vector3, mesh: AbstractMesh }[] {
-    return this.projectiles.map(p => ({ pos: p.pos.clone(), vel: p.vel, mesh: p.mesh }))
+  getProjectiles(): { pos: Vector3, vel: Vector3, mesh: AbstractMesh, bounced: boolean }[] {
+    return this.projectiles.map(p => ({ pos: p.pos.clone(), vel: p.vel, mesh: p.mesh, bounced: p.bounced }))
   }
 
   /** Deflect a projectile: reverse its velocity back toward this enemy */
@@ -534,6 +575,19 @@ export class Enemy {
     return false
   }
 
+  /** Bounce a projectile off the player: deflect away from player pos */
+  bounceOffPlayer(index: number, playerPos: Vector3) {
+    const p = this.projectiles[index]
+    if (!p) return
+    const away = p.pos.subtract(playerPos)
+    away.y = 0
+    if (away.length() > 0.01) away.normalize()
+    p.vel.x = away.x * 6
+    p.vel.z = away.z * 6
+    p.vel.y = 4
+    p.bounced = true
+  }
+
   isRanged(): boolean { return !!this.typeDef.isRanged }
 
   isDead(): boolean { return this.dead }
@@ -548,6 +602,7 @@ export class Enemy {
       rocks: this.projectiles.map(p => ({
         x: p.pos.x, y: p.pos.y, z: p.pos.z,
         vx: p.vel.x, vy: p.vel.y, vz: p.vel.z,
+        b: p.bounced,
       })),
     }
   }
@@ -605,6 +660,7 @@ export class Enemy {
         pos: new Vector3(r.x, r.y, r.z),
         vel: new Vector3(r.vx, r.vy, r.vz),
         life: 5,
+        bounced: r.b ?? false,
       })
     }
   }

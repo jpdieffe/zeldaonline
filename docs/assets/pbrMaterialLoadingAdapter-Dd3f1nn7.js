@@ -1,0 +1,1 @@
+import{n as e}from"./index-D27volfj.js";export{e as PBRMaterialLoadingAdapter};

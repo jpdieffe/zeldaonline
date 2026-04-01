@@ -313,6 +313,7 @@ function startGame(seed?: string) {
       if (!enemy.isRanged()) continue
       const rocks = enemy.getProjectiles()
       for (let ri = rocks.length - 1; ri >= 0; ri--) {
+        if (rocks[ri].bounced) continue  // can't hurt after first bounce
         const rp = rocks[ri].pos
         const dx2 = rp.x - pp.x
         const dz2 = rp.z - pp.z
@@ -323,7 +324,8 @@ function startGame(seed?: string) {
             enemy.deflectProjectile(ri)
           } else {
             player.takeDamage(1)
-            enemy.removeProjectile(ri)
+            // Bounce rock off player instead of removing
+            enemy.bounceOffPlayer(ri, pp)
           }
         }
       }
@@ -351,6 +353,11 @@ function startGame(seed?: string) {
         const edz = ep.z - pp.z
         const dist = Math.sqrt(edx * edx + edz * edz)
         if (dist < enemy.hitRadius + 0.3) {
+          // Knockback player away from enemy
+          const knockDir = pp.subtract(ep)
+          knockDir.y = 0
+          if (knockDir.length() > 0.01) knockDir.normalize()
+          player.knockBack(knockDir, 30)
           player.takeDamage(enemy.damage)
         }
       })

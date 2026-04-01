@@ -7,6 +7,8 @@ import {
   AnimationGroup,
   AbstractMesh,
   GroundMesh,
+  Color3,
+  StandardMaterial,
 } from '@babylonjs/core'
 
 // ── Enemy type definitions ──────────────────────────────────────────────────
@@ -99,6 +101,10 @@ export class Enemy {
   private state: 'idle' | 'chase' | 'attack' | 'dead' = 'idle'
   private wanderTimer = 0
   private wanderDir = Vector3.Zero()
+
+  // Damage flash
+  private flashTimer = 0
+  private originalColors = new Map<AbstractMesh, Color3>()
 
   constructor(scene: Scene, ground: GroundMesh, typeDef: EnemyTypeDef, spawnPos: Vector3) {
     this.scene = scene
@@ -267,11 +273,19 @@ export class Enemy {
     // Stay on ground
     this.position.y = this.getGroundY(this.position.x, this.position.z)
 
-    // Facing direction
+    // Facing direction (+ PI to face forward)
     if (this.state === 'chase' || this.state === 'attack') {
-      this.facingY = Math.atan2(toPlayer.x, toPlayer.z)
+      this.facingY = Math.atan2(toPlayer.x, toPlayer.z) + Math.PI
     } else if (this.wanderDir.length() > 0.01) {
-      this.facingY = Math.atan2(this.wanderDir.x, this.wanderDir.z)
+      this.facingY = Math.atan2(this.wanderDir.x, this.wanderDir.z) + Math.PI
+    }
+
+    // Damage flash timer
+    if (this.flashTimer > 0) {
+      this.flashTimer -= dt
+      if (this.flashTimer <= 0) {
+        this.restoreColors()
+      }
     }
 
     // Sync ALL pivots to current position + rotation
@@ -287,6 +301,7 @@ export class Enemy {
   takeDamage(amount: number) {
     if (this.dead) return
     this.health -= amount
+    this.flashRed()
     if (this.health <= 0) {
       this.health = 0
       this.dead = true
@@ -294,6 +309,31 @@ export class Enemy {
       this.deathTimer = RESPAWN_TIME
       this.playAnim('death')
     }
+  }
+
+  private flashRed() {
+    this.flashTimer = 0.15
+    // Tint all visible meshes red
+    for (const entry of Object.values(this.entries)) {
+      if (!entry) continue
+      for (const m of entry.meshes) {
+        const mat = m.material as StandardMaterial | null
+        if (mat && mat.diffuseColor) {
+          if (!this.originalColors.has(m)) {
+            this.originalColors.set(m, mat.diffuseColor.clone())
+          }
+          mat.diffuseColor = new Color3(1, 0.1, 0.1)
+        }
+      }
+    }
+  }
+
+  private restoreColors() {
+    for (const [m, color] of this.originalColors) {
+      const mat = m.material as StandardMaterial | null
+      if (mat) mat.diffuseColor = color
+    }
+    this.originalColors.clear()
   }
 
   private respawn() {

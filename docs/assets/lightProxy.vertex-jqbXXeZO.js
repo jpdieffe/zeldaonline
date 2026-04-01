@@ -1,1 +1,0 @@
-import{Zn as e}from"./index-CE-CdKUn.js";export{e as lightProxyVertexShaderWGSL};

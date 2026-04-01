@@ -236,7 +236,7 @@ export class Player {
     if (this.keys.has('q') && this.onGround && !this.attackLock && !this.swimming) {
       this.keys.delete('q')
       this.attackLock = true
-      this.attackLockTimer = this.animDurations.get('roll') ?? 0.8
+      this.attackLockTimer = (this.animDurations.get('roll') ?? 0.8) * 0.7  // cut tail
       this.playAnim('roll')
     }
 
@@ -360,10 +360,10 @@ export class Player {
   private startAttack() {
     const attacks: AnimState[] = ['sword_attack_a', 'sword_attack_b', 'sword_attack_c']
     const anim = attacks[this.swordComboIndex % 3]
-    const duration = this.animDurations.get(anim) ?? 0.7
+    const duration = (this.animDurations.get(anim) ?? 0.7) * 0.7  // cut tail
     this.attackLock = true
     this.attackLockTimer = duration
-    this.comboTimer = duration + 0.5
+    this.comboTimer = duration + 0.3
     this.swordComboIndex = (this.swordComboIndex + 1) % 3
     this.playAnim(anim)
   }

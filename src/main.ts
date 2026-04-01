@@ -281,7 +281,7 @@ function startGame(seed?: string) {
         const edx = ep.x - pp.x
         const edz = ep.z - pp.z
         const dist = Math.sqrt(edx * edx + edz * edz)
-        if (dist < enemy.hitRadius + 0.5) {
+        if (dist < enemy.hitRadius + 0.3) {
           player.takeDamage(enemy.damage)
         }
       })

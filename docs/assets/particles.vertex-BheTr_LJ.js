@@ -1,0 +1,1 @@
+import{_n as e}from"./index-aiEX7fKI.js";export{e as particlesVertexShaderWGSL};

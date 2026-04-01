@@ -8,7 +8,6 @@ import {
   AbstractMesh,
   GroundMesh,
   Color3,
-  StandardMaterial,
 } from '@babylonjs/core'
 import type { EnemyNetState } from './types'
 
@@ -39,31 +38,31 @@ const ENEMY_TYPES: EnemyTypeDef[] = [
     folder: 'spider',
     anims: { idle: 'idle.glb', walk: 'walk.glb', bite: 'idle.glb', death: 'death.glb' },
     scale: [0.8, 1.5], speed: [2, 4], health: [2, 4], damage: 1,
-    attackRange: 2.5, attackCooldown: 1.5, hitRadius: 1.5,
+    attackRange: 2.5, attackCooldown: 1.5, hitRadius: 0.8,
   },
   {
     folder: 'pillbug',
     anims: { idle: 'idle.glb', walk: 'walk.glb', bite: 'bite.glb', death: 'death.glb' },
     scale: [0.6, 1.2], speed: [1.5, 3], health: [3, 5], damage: 1,
-    attackRange: 2.0, attackCooldown: 2.0, hitRadius: 1.2,
+    attackRange: 2.0, attackCooldown: 2.0, hitRadius: 0.6,
   },
   {
     folder: 'ladybug',
     anims: { idle: 'idle.glb', walk: 'walk.glb', bite: 'bite.glb', death: 'death.glb' },
     scale: [0.7, 1.3], speed: [2, 3.5], health: [2, 3], damage: 1,
-    attackRange: 2.0, attackCooldown: 1.8, hitRadius: 1.2,
+    attackRange: 2.0, attackCooldown: 1.8, hitRadius: 0.6,
   },
   {
     folder: 'fox',
     anims: { idle: 'idle.glb', walk: 'run.glb', bite: 'bite.glb', death: 'death.glb' },
     scale: [0.8, 1.4], speed: [3, 5], health: [3, 5], damage: 1,
-    attackRange: 3.5, attackCooldown: 1.2, hitRadius: 2.0,
+    attackRange: 3.5, attackCooldown: 1.2, hitRadius: 1.0,
   },
   {
     folder: 'mantis',
     anims: { idle: 'idle.glb', walk: 'walk.glb', bite: 'bite.glb', death: 'death.glb' },
     scale: [1.0, 2.0], speed: [2, 3.5], health: [4, 7], damage: 2,
-    attackRange: 3.0, attackCooldown: 1.5, hitRadius: 2.0,
+    attackRange: 3.0, attackCooldown: 1.5, hitRadius: 1.0,
   },
 ]
 
@@ -331,17 +330,19 @@ export class Enemy {
   }
 
   private flashRed() {
-    this.flashTimer = 0.15
-    // Tint all visible meshes red
+    this.flashTimer = 0.2
+    // Tint all meshes across all entries with emissive red glow
     for (const entry of Object.values(this.entries)) {
       if (!entry) continue
       for (const m of entry.meshes) {
-        const mat = m.material as StandardMaterial | null
-        if (mat && mat.diffuseColor) {
+        if (!m.material) continue
+        const mat = m.material as any
+        // Works on both StandardMaterial and PBRMaterial
+        if (mat.emissiveColor !== undefined) {
           if (!this.originalColors.has(m)) {
-            this.originalColors.set(m, mat.diffuseColor.clone())
+            this.originalColors.set(m, mat.emissiveColor ? mat.emissiveColor.clone() : new Color3(0, 0, 0))
           }
-          mat.diffuseColor = new Color3(1, 0.1, 0.1)
+          mat.emissiveColor = new Color3(1, 0.15, 0.15)
         }
       }
     }
@@ -349,8 +350,9 @@ export class Enemy {
 
   private restoreColors() {
     for (const [m, color] of this.originalColors) {
-      const mat = m.material as StandardMaterial | null
-      if (mat) mat.diffuseColor = color
+      if (!m.material) continue
+      const mat = m.material as any
+      if (mat.emissiveColor !== undefined) mat.emissiveColor = color
     }
     this.originalColors.clear()
   }

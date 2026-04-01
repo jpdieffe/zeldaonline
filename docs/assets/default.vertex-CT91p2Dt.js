@@ -1,0 +1,1 @@
+import{kn as e}from"./index-TAKHgXLX.js";export{e as defaultVertexShaderWGSL};

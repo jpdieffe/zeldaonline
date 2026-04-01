@@ -1,0 +1,1 @@
+import{Ot as e}from"./index-TAKHgXLX.js";export{e as blackAndWhitePixelShaderWGSL};

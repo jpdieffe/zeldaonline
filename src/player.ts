@@ -339,6 +339,8 @@ export class Player {
     // ── Sync model ────────────────────────────────────────────────────────
     if (this.modelPivot) {
       this.modelPivot.position.copyFrom(this.position)
+      // Sink model to waist level when swimming
+      if (this.swimming) this.modelPivot.position.y -= PLAYER_HEIGHT * 0.45
       this.modelPivot.rotation.y = this.facingY
     }
 

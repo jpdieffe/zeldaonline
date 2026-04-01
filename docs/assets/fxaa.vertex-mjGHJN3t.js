@@ -1,0 +1,1 @@
+import{Mt as e}from"./index-TAKHgXLX.js";export{e as fxaaVertexShader};

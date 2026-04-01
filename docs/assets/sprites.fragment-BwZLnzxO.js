@@ -1,0 +1,1 @@
+import{p as e}from"./index-CInf6FQi.js";export{e as spritesPixelShader};

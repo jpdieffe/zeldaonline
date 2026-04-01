@@ -234,6 +234,10 @@ export class Enemy {
 
     if (this.dead) {
       this.deathTimer -= dt
+      if (this.flashTimer > 0) {
+        this.flashTimer -= dt
+        if (this.flashTimer <= 0) this.restoreColors()
+      }
       if (this.deathTimer <= 0) {
         this.respawn()
       }

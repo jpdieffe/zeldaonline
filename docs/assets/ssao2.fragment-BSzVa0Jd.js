@@ -1,0 +1,1 @@
+import{un as e}from"./index-D4IBiOPB.js";export{e as ssao2PixelShaderWGSL};

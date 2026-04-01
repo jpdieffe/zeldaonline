@@ -139,8 +139,8 @@ export class Player {
   constructor(scene: Scene, ground: GroundMesh) {
     this.scene = scene
     this.ground = ground
-    // Start above terrain
-    this.position.y = this.getGroundY(0, 0) + 2
+    // Find a dry starting position
+    this.position = this.findDrySpawn()
     this.setupCamera()
     this.setupInput()
     this.loadModel()
@@ -672,14 +672,30 @@ export class Player {
   private respawn() {
     this.dead = false
     this.health = this.maxHealth
-    this.position = SPAWN.clone()
-    this.position.y = this.getGroundY(0, 0) + 2
+    // Find a dry spawn point
+    this.position = this.findDrySpawn()
     this.velocity.set(0, 0, 0)
     this.onGround = true
     this.attackLock = false
     this.attackLockTimer = 0
     this.iframeTimer = 2.0
     this.playAnim('idle')
+  }
+
+  private findDrySpawn(): Vector3 {
+    // Try origin first, then search outward
+    for (let r = 0; r <= 80; r += 5) {
+      for (let a = 0; a < 8; a++) {
+        const angle = a * Math.PI / 4
+        const x = Math.cos(angle) * r
+        const z = Math.sin(angle) * r
+        const y = this.getGroundY(x, z)
+        if (y > WATER_Y + 0.3) {
+          return new Vector3(x, y + 2, z)
+        }
+      }
+    }
+    return new Vector3(0, 5, 0)
   }
 
   getHealth(): number { return this.health }

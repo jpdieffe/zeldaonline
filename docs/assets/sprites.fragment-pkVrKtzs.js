@@ -1,0 +1,1 @@
+import{d as e}from"./index-CYPvMPQl.js";export{e as spritesPixelShaderWGSL};

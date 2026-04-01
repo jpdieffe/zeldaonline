@@ -85,7 +85,7 @@ export class RemotePlayer {
 
     // Load sword for remote player
     const handBone = this.root!.getChildTransformNodes(false)
-      .find(n => n.name === 'hand_l')
+      .find(n => n.name === 'hand_r')
     if (handBone) {
       const swordResult = await SceneLoader.ImportMeshAsync('', './assets/weapons/', 'sword.glb', this.scene)
       const swordRoot = swordResult.meshes[0] as unknown as TransformNode

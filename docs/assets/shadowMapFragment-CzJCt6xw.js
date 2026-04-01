@@ -1,0 +1,1 @@
+import{fr as e}from"./index-CYPvMPQl.js";export{e as shadowMapFragmentWGSL};

@@ -1,0 +1,1 @@
+import{Yn as e}from"./index-XnJM-FCp.js";export{e as backgroundPixelShaderWGSL};

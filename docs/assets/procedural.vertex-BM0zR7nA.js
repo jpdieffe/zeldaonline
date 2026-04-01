@@ -1,0 +1,1 @@
+import{Hn as e}from"./index-XnJM-FCp.js";export{e as proceduralVertexShaderWGSL};

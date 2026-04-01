@@ -1,0 +1,1 @@
+import{Zn as e}from"./index-XnJM-FCp.js";export{e as lightProxyVertexShaderWGSL};

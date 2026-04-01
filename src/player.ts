@@ -253,7 +253,7 @@ export class Player {
     if (!this.attackLock) {
       const dx = this.position.x - this.camera.position.x
       const dz = this.position.z - this.camera.position.z
-      this.facingY = Math.atan2(dx, dz)
+      this.facingY = Math.atan2(dx, dz) + Math.PI
     }
 
     // Speed selection

@@ -1,0 +1,1 @@
+import{an as e}from"./index-XnJM-FCp.js";export{e as screenSpaceReflection2PixelShaderWGSL};

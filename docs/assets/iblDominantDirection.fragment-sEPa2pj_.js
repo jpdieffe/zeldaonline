@@ -1,1 +1,0 @@
-import{_ as e}from"./index-CUrLTXO0.js";export{e as iblDominantDirectionPixelShaderWGSL};

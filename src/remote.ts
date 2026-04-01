@@ -88,11 +88,12 @@ export class RemotePlayer {
       .find(n => n.name === 'hand_r')
     if (handBone) {
       const swordResult = await SceneLoader.ImportMeshAsync('', './assets/weapons/', 'sword.glb', this.scene)
+      const swordPivot = new TransformNode('swordPivotRemote', this.scene)
+      swordPivot.parent = handBone
+      swordPivot.position.set(0, 0.35, 0.25)
+      swordPivot.rotation.set(2.3, 0, 0)
       const swordRoot = swordResult.meshes[0] as unknown as TransformNode
-      swordRoot.parent = handBone
-      swordRoot.position.set(0, 0.1, 0)
-      swordRoot.rotation.set(0, 0, 0)
-      swordRoot.scaling.setAll(1)
+      swordRoot.parent = swordPivot
       this.swordMeshes = swordResult.meshes.filter(m => m !== swordResult.meshes[0])
       for (const m of this.swordMeshes) m.isVisible = false
     }

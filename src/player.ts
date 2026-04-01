@@ -238,8 +238,8 @@ export class Player {
     // Intermediate pivot so we can freely rotate/position
     this.swordRoot = new TransformNode('swordPivot', this.scene)
     this.swordRoot.parent = handBone
-    this.swordRoot.position.set(0, 0.1, 0)
-    this.swordRoot.rotation.set(0, 0, 0)
+    this.swordRoot.position.set(0, 0.35, 0.25)
+    this.swordRoot.rotation.set(2.3, 0, 0)
 
     const result = await SceneLoader.ImportMeshAsync('', './assets/weapons/', 'sword.glb', this.scene)
     const glbRoot = result.meshes[0] as unknown as TransformNode
@@ -251,67 +251,6 @@ export class Player {
     this.swordMeshes = result.meshes.filter(m => m !== result.meshes[0])
     // Start hidden
     this.setSwordVisible(false)
-
-    // Runtime adjustment controls
-    this.setupSwordAdjustUI()
-  }
-
-  private setupSwordAdjustUI() {
-    const panel = document.createElement('div')
-    panel.id = 'sword-adjust'
-    panel.style.cssText = 'position:fixed;top:10px;right:10px;background:rgba(0,0,0,0.85);color:#fff;padding:12px;font:13px monospace;z-index:9999;border-radius:8px;min-width:260px;'
-    const title = document.createElement('div')
-    title.textContent = 'SWORD ADJUST'
-    title.style.cssText = 'text-align:center;font-weight:bold;margin-bottom:8px;color:#0ff;font-size:14px;'
-    panel.appendChild(title)
-
-    const step = 0.05
-    const rstep = 0.1
-    const colors: Record<string, string> = {
-      posX: '#f44', posY: '#4f4', posZ: '#48f',
-      rotX: '#fa4', rotY: '#af4', rotZ: '#f4f',
-      scale: '#ff4',
-    }
-    const labels = [
-      { axis: 'posX', label: 'Pos X', get: () => this.swordRoot!.position.x, set: (v: number) => this.swordRoot!.position.x = v },
-      { axis: 'posY', label: 'Pos Y', get: () => this.swordRoot!.position.y, set: (v: number) => this.swordRoot!.position.y = v },
-      { axis: 'posZ', label: 'Pos Z', get: () => this.swordRoot!.position.z, set: (v: number) => this.swordRoot!.position.z = v },
-      { axis: 'rotX', label: 'Rot X', get: () => this.swordRoot!.rotation.x, set: (v: number) => this.swordRoot!.rotation.x = v },
-      { axis: 'rotY', label: 'Rot Y', get: () => this.swordRoot!.rotation.y, set: (v: number) => this.swordRoot!.rotation.y = v },
-      { axis: 'rotZ', label: 'Rot Z', get: () => this.swordRoot!.rotation.z, set: (v: number) => this.swordRoot!.rotation.z = v },
-      { axis: 'scale', label: 'Scale', get: () => this.swordRoot!.scaling.x, set: (v: number) => this.swordRoot!.scaling.setAll(v) },
-    ]
-    for (const item of labels) {
-      const row = document.createElement('div')
-      row.style.cssText = 'display:flex;align-items:center;gap:6px;margin:4px 0;'
-      const lbl = document.createElement('span')
-      lbl.style.cssText = `width:50px;color:${colors[item.axis]};font-weight:bold;`
-      lbl.textContent = item.label
-      const val = document.createElement('span')
-      val.style.cssText = 'width:55px;text-align:right;color:#fff;'
-      val.textContent = item.get().toFixed(2)
-      const btnStyle = `width:36px;height:28px;cursor:pointer;font-size:16px;font-weight:bold;border:none;border-radius:4px;color:#000;background:${colors[item.axis]};`
-      const btnM = document.createElement('button')
-      btnM.textContent = '\u2212'
-      btnM.style.cssText = btnStyle
-      const btnP = document.createElement('button')
-      btnP.textContent = '+'
-      btnP.style.cssText = btnStyle
-      const s = item.axis.startsWith('rot') ? rstep : (item.axis === 'scale' ? 0.1 : step)
-      btnM.onclick = (e) => { e.stopPropagation(); item.set(item.get() - s); val.textContent = item.get().toFixed(2); this.logSwordValues() }
-      btnP.onclick = (e) => { e.stopPropagation(); item.set(item.get() + s); val.textContent = item.get().toFixed(2); this.logSwordValues() }
-      row.append(btnM, lbl, val, btnP)
-      panel.appendChild(row)
-    }
-    document.body.appendChild(panel)
-  }
-
-  private logSwordValues() {
-    if (!this.swordRoot) return
-    const p = this.swordRoot.position
-    const r = this.swordRoot.rotation
-    const s = this.swordRoot.scaling.x
-    console.log(`Sword: pos(${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)}) rot(${r.x.toFixed(2)}, ${r.y.toFixed(2)}, ${r.z.toFixed(2)}) scale(${s.toFixed(2)})`)
   }
 
   private setSwordVisible(visible: boolean) {

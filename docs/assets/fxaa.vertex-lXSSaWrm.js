@@ -1,0 +1,1 @@
+import{Mt as e}from"./index-BaNPj4aq.js";export{e as fxaaVertexShader};

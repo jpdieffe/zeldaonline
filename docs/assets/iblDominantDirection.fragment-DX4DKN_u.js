@@ -1,0 +1,1 @@
+import{_ as e}from"./index-DGSpfzyF.js";export{e as iblDominantDirectionPixelShaderWGSL};

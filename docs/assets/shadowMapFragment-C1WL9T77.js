@@ -1,0 +1,1 @@
+import{fr as e}from"./index-DGSpfzyF.js";export{e as shadowMapFragmentWGSL};

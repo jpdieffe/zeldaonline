@@ -23,7 +23,9 @@ interface AnimEntry {
 
 interface EnemyTypeDef {
   folder: string
-  anims: Record<EnemyAnim, string>   // anim key → glb filename
+  singleGlb?: string                        // if set, one GLB with all anims baked in
+  animNames?: Record<EnemyAnim, string>      // anim key → animation group name inside glb
+  anims?: Record<EnemyAnim, string>          // anim key → glb filename (multi-GLB)
   scale: [number, number]
   speed: [number, number]
   health: [number, number]
@@ -35,34 +37,11 @@ interface EnemyTypeDef {
 
 const ENEMY_TYPES: EnemyTypeDef[] = [
   {
-    folder: 'spider',
-    anims: { idle: 'idle.glb', walk: 'walk.glb', bite: 'idle.glb', death: 'death.glb' },
-    scale: [0.8, 1.5], speed: [2, 4], health: [2, 4], damage: 1,
-    attackRange: 2.5, attackCooldown: 1.5, hitRadius: 0.8,
-  },
-  {
-    folder: 'pillbug',
-    anims: { idle: 'idle.glb', walk: 'walk.glb', bite: 'bite.glb', death: 'death.glb' },
-    scale: [0.6, 1.2], speed: [1.5, 3], health: [3, 5], damage: 1,
-    attackRange: 2.0, attackCooldown: 2.0, hitRadius: 0.6,
-  },
-  {
-    folder: 'ladybug',
-    anims: { idle: 'idle.glb', walk: 'walk.glb', bite: 'bite.glb', death: 'death.glb' },
-    scale: [0.7, 1.3], speed: [2, 3.5], health: [2, 3], damage: 1,
-    attackRange: 2.0, attackCooldown: 1.8, hitRadius: 0.6,
-  },
-  {
-    folder: 'fox',
-    anims: { idle: 'idle.glb', walk: 'run.glb', bite: 'bite.glb', death: 'death.glb' },
-    scale: [0.8, 1.4], speed: [3, 5], health: [3, 5], damage: 1,
-    attackRange: 3.5, attackCooldown: 1.2, hitRadius: 1.0,
-  },
-  {
-    folder: 'mantis',
-    anims: { idle: 'idle.glb', walk: 'walk.glb', bite: 'bite.glb', death: 'death.glb' },
-    scale: [1.0, 2.0], speed: [2, 3.5], health: [4, 7], damage: 2,
-    attackRange: 3.0, attackCooldown: 1.5, hitRadius: 1.0,
+    folder: 'weak_orc',
+    singleGlb: 'weak_orc.glb',
+    animNames: { idle: 'Idle', walk: 'Walk', bite: 'Attack', death: 'Death' },
+    scale: [0.8, 1.2], speed: [2, 3.5], health: [3, 5], damage: 1,
+    attackRange: 2.5, attackCooldown: 1.5, hitRadius: 1.0,
   },
 ]
 
@@ -147,11 +126,49 @@ export class Enemy {
   private async load() {
     const folder = `./assets/bad_guys/${this.typeDef.folder}/`
 
-    // Deduplicate: if two anims point to same file, share the entry
+    if (this.typeDef.singleGlb && this.typeDef.animNames) {
+      // Single-GLB mode: one file with all animations baked in
+      await this.loadSingleGlb(folder)
+    } else if (this.typeDef.anims) {
+      // Multi-GLB mode: separate files per animation
+      await this.loadMultiGlb(folder)
+    }
+
+    if (Object.keys(this.entries).length > 0) {
+      this.loaded = true
+      this.showAnim('idle')
+    }
+  }
+
+  private async loadSingleGlb(folder: string) {
+    try {
+      const result = await SceneLoader.ImportMeshAsync('', folder, this.typeDef.singleGlb!, this.scene)
+      const pivot = new TransformNode(`enemy_pivot_single`, this.scene)
+      pivot.position.copyFrom(this.position)
+      const root = result.meshes[0] as unknown as TransformNode
+      root.parent = pivot
+      root.scaling.setAll(this.scale)
+
+      const meshes = result.meshes.filter(m => m !== result.meshes[0])
+      meshes.forEach(m => { m.isVisible = false })
+
+      // Map animation groups by our EnemyAnim keys
+      for (const [animKey, animName] of Object.entries(this.typeDef.animNames!) as [EnemyAnim, string][]) {
+        const group = result.animationGroups.find(g => g.name === animName) ?? null
+        if (group) group.stop()
+        // All anims share the same pivot/root/meshes
+        this.entries[animKey] = { pivot, root, meshes, group }
+      }
+    } catch (e) {
+      console.warn(`Failed to load ${folder}${this.typeDef.singleGlb}:`, e)
+    }
+  }
+
+  private async loadMultiGlb(folder: string) {
     const fileToAnim = new Map<string, EnemyAnim>()
     const animAliases = new Map<EnemyAnim, EnemyAnim>()
 
-    for (const [animKey, fileName] of Object.entries(this.typeDef.anims) as [EnemyAnim, string][]) {
+    for (const [animKey, fileName] of Object.entries(this.typeDef.anims!) as [EnemyAnim, string][]) {
       if (fileToAnim.has(fileName)) {
         // This anim uses the same file as another — alias it
         animAliases.set(animKey, fileToAnim.get(fileName)!)
@@ -189,11 +206,6 @@ export class Enemy {
         this.entries[alias] = this.entries[target]
       }
     }
-
-    if (Object.keys(this.entries).length > 0) {
-      this.loaded = true
-      this.showAnim('idle')
-    }
   }
 
   /** Show one animation's meshes, hide all others, play its animation */
@@ -204,18 +216,27 @@ export class Enemy {
     const prevEntry = this.entries[this.currentAnim]
     if (prevEntry?.group) prevEntry.group.stop()
 
-    // Hide all meshes
-    for (const entry of Object.values(this.entries)) {
-      if (!entry) continue
-      entry.meshes.forEach(m => { m.isVisible = false })
-    }
-
-    // Show + play the target animation
-    const entry = this.entries[anim]
-    if (entry) {
-      entry.meshes.forEach(m => { m.isVisible = true })
-      if (entry.group) {
-        entry.group.start(anim !== 'death', 1.0, entry.group.from, entry.group.to, false)
+    if (this.typeDef.singleGlb) {
+      // Single-GLB mode: all anims share same meshes, just switch animation group
+      const entry = this.entries[anim]
+      if (entry) {
+        entry.meshes.forEach(m => { m.isVisible = true })
+        if (entry.group) {
+          entry.group.start(anim !== 'death', 1.0, entry.group.from, entry.group.to, false)
+        }
+      }
+    } else {
+      // Multi-GLB mode: hide all meshes, show target
+      for (const entry of Object.values(this.entries)) {
+        if (!entry) continue
+        entry.meshes.forEach(m => { m.isVisible = false })
+      }
+      const entry = this.entries[anim]
+      if (entry) {
+        entry.meshes.forEach(m => { m.isVisible = true })
+        if (entry.group) {
+          entry.group.start(anim !== 'death', 1.0, entry.group.from, entry.group.to, false)
+        }
       }
     }
 
@@ -449,16 +470,31 @@ export class EnemyManager {
     const rng = seed ? mulberry32(hashSeed(seed)) : Math.random
     const GROUND_SIZE = 200
     const half = GROUND_SIZE / 2 - 10
+    const CLUSTER_SIZE = 3
+    const CLUSTER_SPREAD = 4  // units apart within a cluster
 
-    for (let i = 0; i < count; i++) {
+    const clusterCount = Math.ceil(count / CLUSTER_SIZE)
+    let spawned = 0
+
+    for (let c = 0; c < clusterCount && spawned < count; c++) {
       const typeDef = ENEMY_TYPES[Math.floor(rng() * ENEMY_TYPES.length)]
-      const x = rand(-half, half, rng)
-      const z = rand(-half, half, rng)
-      const y = ground.getHeightAtCoordinates(x, z) ?? 0
-      // Skip spawning in water
-      if (y < -0.2) { count++; continue }
-      const enemy = new Enemy(scene, ground, typeDef, new Vector3(x, y, z), rng)
-      this.enemies.push(enemy)
+      // Pick cluster center
+      const cx = rand(-half, half, rng)
+      const cz = rand(-half, half, rng)
+      const cy = ground.getHeightAtCoordinates(cx, cz) ?? 0
+      if (cy < -0.2) continue  // skip water clusters
+
+      for (let i = 0; i < CLUSTER_SIZE && spawned < count; i++) {
+        const ox = (i === 0) ? 0 : rand(-CLUSTER_SPREAD, CLUSTER_SPREAD, rng)
+        const oz = (i === 0) ? 0 : rand(-CLUSTER_SPREAD, CLUSTER_SPREAD, rng)
+        const x = cx + ox
+        const z = cz + oz
+        const y = ground.getHeightAtCoordinates(x, z) ?? 0
+        if (y < -0.2) continue
+        const enemy = new Enemy(scene, ground, typeDef, new Vector3(x, y, z), rng)
+        this.enemies.push(enemy)
+        spawned++
+      }
     }
   }
 

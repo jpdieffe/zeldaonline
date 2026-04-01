@@ -1,0 +1,1 @@
+import{un as e}from"./index-DGSpfzyF.js";export{e as ssao2PixelShaderWGSL};

@@ -1,1 +1,0 @@
-import{Yn as e}from"./index-CRPLgVzU.js";export{e as backgroundPixelShaderWGSL};

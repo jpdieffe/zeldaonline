@@ -1,0 +1,1 @@
+import{r as e}from"./index-DGSpfzyF.js";export{e as OpenPBRMaterialLoadingAdapter};

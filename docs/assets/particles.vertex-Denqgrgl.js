@@ -1,0 +1,1 @@
+import{_n as e}from"./index-DGSpfzyF.js";export{e as particlesVertexShaderWGSL};

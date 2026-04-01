@@ -1,0 +1,1 @@
+import{An as e}from"./index-DGSpfzyF.js";export{e as defaultPixelShaderWGSL};

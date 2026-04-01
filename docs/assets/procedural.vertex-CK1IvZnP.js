@@ -1,0 +1,1 @@
+import{Vn as e}from"./index-DGSpfzyF.js";export{e as proceduralVertexShader};

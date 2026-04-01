@@ -94,6 +94,7 @@ export class Player {
 
   // Skin swap
   private skinNames = ['player', 'link']
+  private skinScales = [MODEL_SCALE, MODEL_SCALE * 2]
   private skinIndex = 0
   private skinRoots: TransformNode[] = []
   private skinMeshSets: AbstractMesh[][] = []
@@ -263,11 +264,12 @@ export class Player {
     this.modelPivot = new TransformNode('playerPivot', this.scene)
 
     // Load all skins
-    for (const skinName of this.skinNames) {
+    for (let si = 0; si < this.skinNames.length; si++) {
+      const skinName = this.skinNames[si]
       const result = await SceneLoader.ImportMeshAsync('', './assets/player/', `${skinName}.glb`, this.scene)
       const root = result.meshes[0] as unknown as TransformNode
       root.parent = this.modelPivot
-      root.scaling.setAll(MODEL_SCALE)
+      root.scaling.setAll(this.skinScales[si])
       this.skinRoots.push(root)
       this.skinMeshSets.push(result.meshes.slice(1) as AbstractMesh[])
 

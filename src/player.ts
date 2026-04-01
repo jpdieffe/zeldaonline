@@ -259,7 +259,7 @@ export class Player {
 
     // Facing = same forward direction (always show player's back)
     if (!this.attackLock) {
-      this.facingY = Math.atan2(forward.x, forward.z)
+      this.facingY = Math.atan2(forward.x, forward.z) + Math.PI
     }
 
     // Speed selection

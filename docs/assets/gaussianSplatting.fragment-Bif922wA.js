@@ -1,0 +1,1 @@
+import{xo as e}from"./index-Bcmt-Ntm.js";export{e as gaussianSplattingPixelShaderWGSL};

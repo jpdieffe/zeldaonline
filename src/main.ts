@@ -14,7 +14,7 @@ import {
 import { Player } from './player'
 import { Network } from './network'
 import { RemotePlayer } from './remote'
-import { EnemyManager } from './enemy'
+import { EnemyManager, Enemy } from './enemy'
 
 const canvas = document.getElementById('renderCanvas') as HTMLCanvasElement
 const network = new Network()
@@ -211,9 +211,11 @@ function startGame() {
     heartsDiv.textContent = s
   }
 
-  // Track if we already hit enemies this attack swing
-  let hitThisSwing = false
+  // Track per-enemy hits this swing
+  const hitEnemies = new Set<Enemy>()
+  const hitByThrow = new Set<Enemy>()
   let wasAttacking = false
+  let wasThrowing = false
 
   // Network send
   const SEND_INTERVAL = 1 / 20
@@ -225,21 +227,52 @@ function startGame() {
 
     player.update(dt)
 
-    // Sword hit detection
+    // Melee hit detection — check every frame, per-enemy tracking
     const attacking = player.isAttacking()
-    if (attacking && !wasAttacking) hitThisSwing = false
+    if (attacking && !wasAttacking) hitEnemies.clear()
     wasAttacking = attacking
 
-    if (attacking && !hitThisSwing) {
-      const tip = player.getSwordTip()
-      enemyMgr.checkSwordHits(tip, 1)
-      hitThisSwing = true
+    if (attacking) {
+      const ppos = player.getPosition()
+      for (const enemy of enemyMgr.getEnemies()) {
+        if (enemy.isDead() || hitEnemies.has(enemy)) continue
+        const edx = enemy.getPosition().x - ppos.x
+        const edz = enemy.getPosition().z - ppos.z
+        const dist = Math.sqrt(edx * edx + edz * edz)
+        if (dist < 3.5) {
+          enemy.takeDamage(1)
+          hitEnemies.add(enemy)
+        }
+      }
     }
 
-    // Enemy AI + attacks on player
+    // Thrown sword hit detection
+    const throwing = player.isThrowing()
+    if (throwing && !wasThrowing) hitByThrow.clear()
+    wasThrowing = throwing
+
+    if (throwing) {
+      const tp = player.getThrownSwordPos()
+      if (tp) {
+        for (const enemy of enemyMgr.getEnemies()) {
+          if (enemy.isDead() || hitByThrow.has(enemy)) continue
+          const dist = Vector3.Distance(tp, enemy.getPosition())
+          if (dist < 3.0) {
+            enemy.takeDamage(2)
+            hitByThrow.add(enemy)
+          }
+        }
+      }
+    }
+
+    // Enemy AI + attacks on player (horizontal distance)
     enemyMgr.update(dt, player.getPosition(), (enemy) => {
-      const dist = Vector3.Distance(enemy.getPosition(), player.getPosition())
-      if (dist < enemy.hitRadius + 1.0) {
+      const ep = enemy.getPosition()
+      const pp = player.getPosition()
+      const edx = ep.x - pp.x
+      const edz = ep.z - pp.z
+      const dist = Math.sqrt(edx * edx + edz * edz)
+      if (dist < enemy.hitRadius + 1.5) {
         player.takeDamage(enemy.damage)
       }
     })

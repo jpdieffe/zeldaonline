@@ -13,6 +13,7 @@ import {
 type EnemyAnim = 'idle' | 'walk' | 'bite' | 'death'
 
 interface AnimEntry {
+  pivot: TransformNode
   root: TransformNode
   meshes: AbstractMesh[]
   group: AnimationGroup | null
@@ -53,7 +54,7 @@ const ENEMY_TYPES: EnemyTypeDef[] = [
     folder: 'fox',
     anims: { idle: 'idle.glb', walk: 'run.glb', bite: 'bite.glb', death: 'death.glb' },
     scale: [0.8, 1.4], speed: [3, 5], health: [3, 5], damage: 1,
-    attackRange: 2.5, attackCooldown: 1.2, hitRadius: 1.5,
+    attackRange: 3.5, attackCooldown: 1.2, hitRadius: 2.0,
   },
   {
     folder: 'mantis',
@@ -136,9 +137,11 @@ export class Enemy {
     for (const [fileName, animKey] of fileToAnim) {
       try {
         const result = await SceneLoader.ImportMeshAsync('', folder, fileName, this.scene)
+        const pivot = new TransformNode(`enemy_pivot_${animKey}`, this.scene)
+        pivot.position.copyFrom(this.position)
         const root = result.meshes[0] as unknown as TransformNode
+        root.parent = pivot
         root.scaling.setAll(this.scale)
-        root.position.copyFrom(this.position)
 
         const meshes = result.meshes.filter(m => m !== result.meshes[0])
         // Hide all initially
@@ -147,7 +150,7 @@ export class Enemy {
         const group = result.animationGroups.length > 0 ? result.animationGroups[0] : null
         if (group) group.stop()
 
-        this.entries[animKey] = { root, meshes, group }
+        this.entries[animKey] = { pivot, root, meshes, group }
       } catch (e) {
         console.warn(`Failed to load ${folder}${fileName}:`, e)
       }
@@ -271,11 +274,11 @@ export class Enemy {
       this.facingY = Math.atan2(this.wanderDir.x, this.wanderDir.z)
     }
 
-    // Sync ALL roots to current position + rotation
+    // Sync ALL pivots to current position + rotation
     for (const entry of Object.values(this.entries)) {
       if (!entry) continue
-      entry.root.position.copyFrom(this.position)
-      entry.root.rotation.y = this.facingY
+      entry.pivot.position.copyFrom(this.position)
+      entry.pivot.rotation.y = this.facingY
     }
 
     return { wantAttack }
@@ -309,10 +312,12 @@ export class Enemy {
   getMaxHealth(): number { return this.maxHealth }
 
   dispose() {
+    const disposed = new Set<TransformNode>()
     for (const entry of Object.values(this.entries)) {
-      if (!entry) continue
+      if (!entry || disposed.has(entry.pivot)) continue
+      disposed.add(entry.pivot)
       entry.group?.stop()
-      entry.root.dispose()
+      entry.pivot.dispose()
     }
   }
 }

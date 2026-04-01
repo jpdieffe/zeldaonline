@@ -103,7 +103,16 @@ export class Player {
   // Sword
   private swordMeshes: AbstractMesh[] = []
   private swordRoot: TransformNode | null = null
+  private swordGlbRoot: TransformNode | null = null
   swordEquipped = false
+
+  // Thrown sword
+  private thrownActive = false
+  private thrownPivot: TransformNode | null = null
+  private thrownPos = Vector3.Zero()
+  private thrownVel = Vector3.Zero()
+  private thrownBounces = 0
+  private thrownLifetime = 0
 
   // Jump state machine
   private jumpPhase: 'none' | 'start' | 'loop' | 'land' = 'none'
@@ -187,6 +196,9 @@ export class Player {
         this.swordEquipped = false
         this.setSwordVisible(false)
       }
+      if (e.key.toLowerCase() === 'r' && this.swordEquipped && !this.thrownActive) {
+        this.throwSword()
+      }
     })
     window.addEventListener('keyup', (e) => {
       this.keys.delete(e.key.toLowerCase())
@@ -254,6 +266,7 @@ export class Player {
     glbRoot.position.set(0, 0, 0)
     glbRoot.rotation.set(0, 0, 0)
     glbRoot.scaling.setAll(1)
+    this.swordGlbRoot = glbRoot
 
     this.swordMeshes = result.meshes.filter(m => m !== result.meshes[0])
     // Start hidden
@@ -341,7 +354,8 @@ export class Player {
     let speed = WALK_SPEED
     if (this.sprinting)  speed = RUN_SPEED
     else if (moving)     speed = JOG_SPEED
-    if (this.attackLock || this.isDefending) speed = 0
+    if (this.isDefending) speed = 0
+    else if (this.attackLock && !this.rolling) speed = WALK_SPEED * 0.25
     if (this.swimming) speed = this.sprinting ? JOG_SPEED : WALK_SPEED
 
     // Rolling overrides: lunge forward in the facing direction
@@ -402,6 +416,9 @@ export class Player {
 
     // ── Swimming detection ────────────────────────────────────────────────
     this.swimming = this.position.y <= WATER_Y
+
+    // ── Thrown sword ──────────────────────────────────────────────────────
+    this.updateThrownSword(dt)
 
     // ── Animation state machine ───────────────────────────────────────────
     this.updateAnimation(moving)
@@ -486,6 +503,96 @@ export class Player {
     }
   }
 
+  // ── Thrown Sword ───────────────────────────────────────────────────────
+  private throwSword() {
+    if (!this.swordGlbRoot || !this.modelPivot) return
+
+    this.swordEquipped = false
+    this.thrownActive = true
+    this.thrownBounces = 0
+    this.thrownLifetime = 0
+
+    // Create throw pivot in world space
+    this.thrownPivot = new TransformNode('thrownSword', this.scene)
+    this.thrownPos = this.position.clone()
+    this.thrownPos.y += PLAYER_HEIGHT * 0.7
+
+    // Launch in facing direction (camera→player forward)
+    const dx = this.position.x - this.camera.position.x
+    const dz = this.position.z - this.camera.position.z
+    const throwDir = new Vector3(dx, 0, dz).normalize()
+    const THROW_SPEED = 25
+    this.thrownVel = throwDir.scale(THROW_SPEED)
+    this.thrownVel.y = 3 // slight upward arc
+
+    // Reparent sword meshes to throw pivot
+    this.swordGlbRoot.parent = this.thrownPivot
+    this.swordGlbRoot.position.set(0, 0, 0)
+    this.swordGlbRoot.rotation.set(0, 0, 0)
+    this.swordGlbRoot.scaling.setAll(1)
+
+    for (const m of this.swordMeshes) m.isVisible = true
+    this.thrownPivot.position.copyFrom(this.thrownPos)
+  }
+
+  private updateThrownSword(dt: number) {
+    if (!this.thrownActive || !this.thrownPivot) return
+
+    const THROWN_GRAVITY = -15
+    const SPIN_SPEED = 25
+    const BOUNCE_FACTOR = 0.4
+
+    // Apply gravity
+    this.thrownVel.y += THROWN_GRAVITY * dt
+
+    // Move
+    this.thrownPos.addInPlace(this.thrownVel.scale(dt))
+
+    // Ground check
+    const groundY = this.getGroundY(this.thrownPos.x, this.thrownPos.z)
+    if (this.thrownPos.y <= groundY && this.thrownVel.y < 0) {
+      this.thrownBounces++
+      if (this.thrownBounces >= 2) {
+        this.thrownPos.y = groundY
+        this.thrownVel.set(0, 0, 0)
+      } else {
+        this.thrownPos.y = groundY
+        this.thrownVel.y = Math.abs(this.thrownVel.y) * BOUNCE_FACTOR
+        this.thrownVel.x *= 0.5
+        this.thrownVel.z *= 0.5
+      }
+    }
+
+    // Spin
+    this.thrownPivot.rotation.x += SPIN_SPEED * dt
+
+    // Sync position
+    this.thrownPivot.position.copyFrom(this.thrownPos)
+
+    // Auto-recall after landing
+    if (this.thrownBounces >= 2) {
+      this.thrownLifetime += dt
+      if (this.thrownLifetime > 2.0) {
+        this.recallSword()
+      }
+    }
+  }
+
+  private recallSword() {
+    if (!this.thrownPivot || !this.swordGlbRoot || !this.swordRoot) return
+
+    this.swordGlbRoot.parent = this.swordRoot
+    this.swordGlbRoot.position.set(0, 0, 0)
+    this.swordGlbRoot.rotation.set(0, 0, 0)
+    this.swordGlbRoot.scaling.setAll(1)
+
+    this.thrownPivot.dispose()
+    this.thrownPivot = null
+    this.thrownActive = false
+    this.swordEquipped = true
+    this.setSwordVisible(true)
+  }
+
   // ── Public API ────────────────────────────────────────────────────────────
   getState(): PlayerState {
     return {
@@ -550,4 +657,10 @@ export class Player {
   getHealth(): number { return this.health }
   getMaxHealth(): number { return this.maxHealth }
   isDead(): boolean { return this.dead }
+
+  isThrowing(): boolean { return this.thrownActive && this.thrownBounces < 2 }
+  getThrownSwordPos(): Vector3 | null {
+    if (!this.thrownActive || this.thrownBounces >= 2) return null
+    return this.thrownPos.clone()
+  }
 }

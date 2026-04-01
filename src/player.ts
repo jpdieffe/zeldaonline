@@ -445,11 +445,6 @@ export class Player {
 
     this.updateTimers(dt)
 
-    // ── Debug: force defend pose if Y-mode ────────────────────────────────
-    if (this.debugMode && this.debugDefend) {
-      this.isDefendingState = true
-    }
-
     // ── Attack input (requires sword equipped) ───────────────────────────
     if (this.mouseLeft && !this.attackLock && this.onGround && !this.swimming && this.swordEquipped) {
       if (this.sprinting) {
@@ -467,6 +462,10 @@ export class Player {
 
     // ── Defend ────────────────────────────────────────────────────────────
     this.isDefendingState = this.mouseRight && this.onGround && !this.attackLock && !this.swimming
+    // Debug Y-mode: override defend state after normal logic
+    if (this.debugMode && this.debugDefend) {
+      this.isDefendingState = true
+    }
 
     // ── Roll / backflip ───────────────────────────────────────────────────
     if (this.keys.has('q') && this.onGround && !this.attackLock && !this.swimming) {
@@ -509,7 +508,7 @@ export class Player {
     if (this.sprinting)  speed = RUN_SPEED
     else if (moving)     speed = JOG_SPEED
     if (this.isDefendingState) speed = 0
-    else if (this.attackLock && !this.rolling) speed = WALK_SPEED * 0.25
+    else if (this.attackLock && !this.rolling && !this.dashing) speed = WALK_SPEED * 0.25
     if (this.swimming) speed = this.sprinting ? JOG_SPEED : WALK_SPEED
 
     // Rolling overrides: lunge forward in the facing direction
@@ -517,9 +516,9 @@ export class Player {
       this.velocity.x = this.rollDir.x * RUN_SPEED
       this.velocity.z = this.rollDir.z * RUN_SPEED
     } else if (this.dashing) {
-      // Dash attack lunges forward fast
-      this.velocity.x = this.dashDir.x * RUN_SPEED * 1.5
-      this.velocity.z = this.dashDir.z * RUN_SPEED * 1.5
+      // Dash decelerates over time (friction)
+      this.velocity.x *= 0.92
+      this.velocity.z *= 0.92
     } else {
       this.velocity.x = moveDir.x * speed
       this.velocity.z = moveDir.z * speed
@@ -655,6 +654,9 @@ export class Player {
     const dx = this.position.x - this.camera.position.x
     const dz = this.position.z - this.camera.position.z
     this.dashDir = new Vector3(dx, 0, dz).normalize()
+    // One-time forward lunge impulse (not continuous)
+    this.velocity.x = this.dashDir.x * RUN_SPEED * 1.8
+    this.velocity.z = this.dashDir.z * RUN_SPEED * 1.8
     this.playAnim('sword_dash')
   }
 

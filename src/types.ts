@@ -16,6 +16,7 @@ export interface PlayerState {
   z: number
   ry: number
   anim: AnimState
+  sword: boolean
 }
 
 /** Network message envelope */

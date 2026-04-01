@@ -1,0 +1,1 @@
+import{Un as e}from"./index-DfaOLaEC.js";export{e as OpenPBRMaterial};

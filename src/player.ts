@@ -7,6 +7,7 @@ import {
   TransformNode,
   AnimationGroup,
   GroundMesh,
+  AbstractMesh,
 } from '@babylonjs/core'
 import type { AnimState, PlayerState } from './types'
 
@@ -99,6 +100,10 @@ export class Player {
   private rolling = false
   private rollDir = Vector3.Zero()
 
+  // Sword
+  private swordMeshes: AbstractMesh[] = []
+  swordEquipped = false
+
   // Jump state machine
   private jumpPhase: 'none' | 'start' | 'loop' | 'land' = 'none'
   private jumpPhaseTimer = 0
@@ -166,6 +171,14 @@ export class Player {
     window.addEventListener('keydown', (e) => {
       this.keys.add(e.key.toLowerCase())
       if (e.key.toLowerCase() === 'shift') this.sprinting = true
+      if (e.key === '1' && !this.swordEquipped) {
+        this.swordEquipped = true
+        this.setSwordVisible(true)
+      }
+      if (e.key === '2' && this.swordEquipped) {
+        this.swordEquipped = false
+        this.setSwordVisible(false)
+      }
     })
     window.addEventListener('keyup', (e) => {
       this.keys.delete(e.key.toLowerCase())
@@ -211,6 +224,31 @@ export class Player {
 
     this.animsLoaded = true
     this.playAnim('idle')
+
+    // Load sword and attach to left hand bone
+    await this.loadSword()
+  }
+
+  private async loadSword() {
+    const handBone = this.modelPivot!.getChildTransformNodes(false)
+      .find(n => n.name === 'hand_l')
+    if (!handBone) { console.warn('hand_l bone not found'); return }
+
+    const result = await SceneLoader.ImportMeshAsync('', './assets/weapons/', 'sword.glb', this.scene)
+    const swordRoot = result.meshes[0] as unknown as TransformNode
+    swordRoot.parent = handBone
+    // Position/rotation offset to sit naturally in hand
+    swordRoot.position.set(0, 0.1, 0)
+    swordRoot.rotation.set(0, 0, 0)
+    swordRoot.scaling.setAll(1)
+
+    this.swordMeshes = result.meshes.filter(m => m !== result.meshes[0])
+    // Start hidden
+    this.setSwordVisible(false)
+  }
+
+  private setSwordVisible(visible: boolean) {
+    for (const m of this.swordMeshes) m.isVisible = visible
   }
 
   private playAnim(a: AnimState, speedRatio = 1.0) {
@@ -424,6 +462,7 @@ export class Player {
       z: this.position.z,
       ry: this.facingY,
       anim: this.currentAnim,
+      sword: this.swordEquipped,
     }
   }
 

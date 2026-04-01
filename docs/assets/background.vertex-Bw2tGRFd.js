@@ -1,0 +1,1 @@
+import{Xn as e}from"./index-DfaOLaEC.js";export{e as backgroundVertexShaderWGSL};

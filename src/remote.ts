@@ -5,6 +5,7 @@ import {
   SceneLoader,
   TransformNode,
   AnimationGroup,
+  AbstractMesh,
 } from '@babylonjs/core'
 import type { AnimState, PlayerState } from './types'
 
@@ -56,6 +57,8 @@ export class RemotePlayer {
 
   private targetPos = Vector3.Zero()
   private targetRotY = 0
+  private swordMeshes: AbstractMesh[] = []
+  private swordEquipped = false
 
   constructor(scene: Scene) {
     this.scene = scene
@@ -79,6 +82,20 @@ export class RemotePlayer {
 
     this.loaded = true
     this.playAnim('idle')
+
+    // Load sword for remote player
+    const handBone = this.root!.getChildTransformNodes(false)
+      .find(n => n.name === 'hand_l')
+    if (handBone) {
+      const swordResult = await SceneLoader.ImportMeshAsync('', './assets/weapons/', 'sword.glb', this.scene)
+      const swordRoot = swordResult.meshes[0] as unknown as TransformNode
+      swordRoot.parent = handBone
+      swordRoot.position.set(0, 0.1, 0)
+      swordRoot.rotation.set(0, 0, 0)
+      swordRoot.scaling.setAll(1)
+      this.swordMeshes = swordResult.meshes.filter(m => m !== swordResult.meshes[0])
+      for (const m of this.swordMeshes) m.isVisible = false
+    }
   }
 
   private playAnim(a: AnimState) {
@@ -96,6 +113,10 @@ export class RemotePlayer {
     this.targetPos.set(state.x, state.y, state.z)
     this.targetRotY = state.ry
     this.playAnim(state.anim)
+    if (state.sword !== this.swordEquipped) {
+      this.swordEquipped = state.sword
+      for (const m of this.swordMeshes) m.isVisible = state.sword
+    }
   }
 
   update(dt: number) {

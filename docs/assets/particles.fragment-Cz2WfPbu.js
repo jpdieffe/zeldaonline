@@ -1,0 +1,1 @@
+import{vn as e}from"./index-DfaOLaEC.js";export{e as particlesPixelShaderWGSL};

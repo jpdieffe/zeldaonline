@@ -1,0 +1,1 @@
+import{Cn as e}from"./index-ChNgkTyc.js";export{e as colorVertexShaderWGSL};

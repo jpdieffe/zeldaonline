@@ -1,0 +1,1 @@
+import{W as e}from"./index-ChNgkTyc.js";export{e as rsmFullGlobalIlluminationPixelShaderWGSL};

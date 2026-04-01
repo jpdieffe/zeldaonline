@@ -1,0 +1,1 @@
+import{yn as e}from"./index-Dgu50buj.js";export{e as particlesVertexShader};

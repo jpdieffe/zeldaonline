@@ -587,6 +587,10 @@ export class Player {
       // Sink model to waist level when swimming
       if (this.swimming) this.modelPivot.position.y -= PLAYER_HEIGHT * 0.45
       this.modelPivot.rotation.y = this.facingY
+      // Reset modelRoot position to prevent root-motion animations from displacing the model
+      if (this.modelRoot) {
+        this.modelRoot.position.set(0, 0, 0)
+      }
     }
 
     // ── Slash trail visibility ─────────────────────────────────────────────

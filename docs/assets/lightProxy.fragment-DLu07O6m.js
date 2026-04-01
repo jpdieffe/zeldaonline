@@ -1,1 +1,0 @@
-import{Qn as e}from"./index-CiFPSq_l.js";export{e as lightProxyPixelShaderWGSL};

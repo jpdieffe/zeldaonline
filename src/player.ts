@@ -82,6 +82,7 @@ export class Player {
   // Model
   private modelRoot: TransformNode | null = null
   private animGroups = new Map<AnimState, AnimationGroup>()
+  private animDurations = new Map<AnimState, number>()
   private currentAnim: AnimState = 'idle'
   private animsLoaded = false
 
@@ -182,6 +183,9 @@ export class Player {
         group.stop()
         group.loopAnimation = !ONE_SHOT.has(state)
         this.animGroups.set(state, group)
+        // Store actual duration so attack lock timers match animation length
+        const fps = group.targetedAnimations[0]?.animation.framePerSecond ?? 30
+        this.animDurations.set(state, (group.to - group.from) / fps)
       } else {
         console.warn(`Animation not found: ${glbName}`)
       }
@@ -237,9 +241,13 @@ export class Player {
     const moving  = moveDir.length() > 0.01
     if (moving) moveDir.normalize()
 
-    // Face movement direction
-    if (moving && !this.attackLock) {
-      this.facingY = Math.atan2(moveDir.x, moveDir.z)
+    // Player always faces camera direction; when moving, face movement direction instead
+    if (!this.attackLock) {
+      if (moving) {
+        this.facingY = Math.atan2(moveDir.x, moveDir.z)
+      } else {
+        this.facingY = Math.atan2(forward.x, forward.z)
+      }
     }
 
     // Speed selection
@@ -324,9 +332,10 @@ export class Player {
   private startAttack() {
     const attacks: AnimState[] = ['sword_attack_a', 'sword_attack_b', 'sword_attack_c']
     const anim = attacks[this.swordComboIndex % 3]
+    const duration = this.animDurations.get(anim) ?? 0.7
     this.attackLock = true
-    this.attackLockTimer = 0.55
-    this.comboTimer = 0.8
+    this.attackLockTimer = duration
+    this.comboTimer = duration + 0.5
     this.swordComboIndex = (this.swordComboIndex + 1) % 3
     this.playAnim(anim)
   }

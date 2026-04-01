@@ -1,0 +1,1 @@
+import{Zn as e}from"./index-CRPLgVzU.js";export{e as lightProxyVertexShaderWGSL};

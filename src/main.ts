@@ -215,8 +215,8 @@ function startGame(seed?: string) {
     heartsDiv.textContent = s
   }
 
-  // Track per-enemy hits this swing
-  const hitEnemies = new Set<Enemy>()
+  // Track per-enemy hits by attack animation (each new anim allows re-hit)
+  const hitEnemyAnim = new Map<Enemy, string>()
   const hitByThrow = new Set<Enemy>()
   let wasAttacking = false
   let wasThrowing = false
@@ -233,21 +233,31 @@ function startGame(seed?: string) {
 
     player.update(dt)
 
-    // Melee hit detection — check every frame, per-enemy tracking
+    // Melee hit detection — per-animation tracking (each new attack anim resets)
     const attacking = player.isAttacking()
-    if (attacking && !wasAttacking) hitEnemies.clear()
+    const atkAnim = player.getAttackAnim()
+    if (attacking && !wasAttacking) hitEnemyAnim.clear()
     wasAttacking = attacking
 
     if (attacking) {
       const ppos = player.getPosition()
       for (const enemy of enemyMgr.getEnemies()) {
-        if (enemy.isDead() || hitEnemies.has(enemy)) continue
+        if (enemy.isDead()) continue
+        // Allow re-hit if this is a different attack animation than what last hit them
+        if (hitEnemyAnim.get(enemy) === atkAnim) continue
         const edx = enemy.getPosition().x - ppos.x
         const edz = enemy.getPosition().z - ppos.z
         const dist = Math.sqrt(edx * edx + edz * edz)
         if (dist < 3.5) {
           enemy.takeDamage(1)
-          hitEnemies.add(enemy)
+          hitEnemyAnim.set(enemy, atkAnim)
+          // 3rd hit (sword_attack_c) knocks the enemy back
+          if (atkAnim === 'sword_attack_c') {
+            const dir = enemy.getPosition().subtract(ppos)
+            dir.y = 0
+            if (dir.length() > 0.01) dir.normalize()
+            enemy.knockBack(dir, 8)
+          }
         }
       }
     }

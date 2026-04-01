@@ -1,0 +1,1 @@
+import{yn as e}from"./index-CRPLgVzU.js";export{e as particlesVertexShader};

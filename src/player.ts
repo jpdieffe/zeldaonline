@@ -121,6 +121,11 @@ export class Player {
   private trailWidth = 0.35
   swordEquipped = false
 
+  // Shield
+  private shieldRoot: TransformNode | null = null
+  private shieldMeshes: AbstractMesh[] = []
+  shieldEquipped = false
+
   // Thrown sword
   private thrownActive = false
   private thrownPivot: TransformNode | null = null
@@ -225,10 +230,16 @@ export class Player {
         if (this.debugMode) {
           this.swordEquipped = true
           this.setSwordVisible(true)
+          this.shieldEquipped = true
+          this.setShieldVisible(true)
         }
       }
       if (e.key === '3' && this.animsLoaded) {
         this.switchSkin((this.skinIndex + 1) % this.skinNames.length)
+      }
+      if (e.key === '4') {
+        this.shieldEquipped = !this.shieldEquipped
+        this.setShieldVisible(this.shieldEquipped)
       }
     })
     window.addEventListener('keyup', (e) => {
@@ -312,6 +323,12 @@ export class Player {
         .find(n => n.name === 'hand_r')
       if (handBone) this.swordRoot.parent = handBone
     }
+    // Re-attach shield to new skeleton's hand_l
+    if (this.shieldRoot) {
+      const handBone = this.modelRoot.getChildTransformNodes(false)
+        .find(n => n.name === 'hand_l')
+      if (handBone) this.shieldRoot.parent = handBone
+    }
 
     // Restart current anim on new skin
     const cur = this.currentAnim
@@ -358,10 +375,38 @@ export class Player {
     this.swordMeshes = result.meshes.filter(m => m !== result.meshes[0])
     // Start hidden
     this.setSwordVisible(false)
+
+    // Load shield and attach to left hand
+    await this.loadShield()
+  }
+
+  private async loadShield() {
+    const handBone = this.skinRoots[this.skinIndex].getChildTransformNodes(false)
+      .find(n => n.name === 'hand_l')
+    if (!handBone) { console.warn('hand_l bone not found'); return }
+
+    this.shieldRoot = new TransformNode('shieldPivot', this.scene)
+    this.shieldRoot.parent = handBone
+    this.shieldRoot.position.set(0, 0, 0)
+    this.shieldRoot.rotation.set(0, 0, 0)
+
+    const result = await SceneLoader.ImportMeshAsync('', './assets/shields/', 'silver_shield.glb', this.scene)
+    const glbRoot = result.meshes[0] as unknown as TransformNode
+    glbRoot.parent = this.shieldRoot
+    glbRoot.position.set(0, 0, 0)
+    glbRoot.rotation.set(0, 0, 0)
+    glbRoot.scaling.setAll(1)
+
+    this.shieldMeshes = result.meshes.filter(m => m !== result.meshes[0])
+    this.setShieldVisible(false)
   }
 
   private setSwordVisible(visible: boolean) {
     for (const m of this.swordMeshes) m.isVisible = visible
+  }
+
+  private setShieldVisible(visible: boolean) {
+    for (const m of this.shieldMeshes) m.isVisible = visible
   }
 
   private playAnim(a: AnimState, speedRatio = 1.0) {
@@ -396,12 +441,12 @@ export class Player {
       }
     }
 
-    // ── Attack input ──────────────────────────────────────────────────────
-    if (this.mouseLeft && !this.attackLock && this.onGround && !this.swimming) {
+    // ── Attack input (requires sword equipped) ───────────────────────────
+    if (this.mouseLeft && !this.attackLock && this.onGround && !this.swimming && this.swordEquipped) {
       this.startAttack()
     }
     // Air attack: sword_attack_c while airborne
-    if (this.mouseLeft && !this.attackLock && !this.onGround && !this.swimming) {
+    if (this.mouseLeft && !this.attackLock && !this.onGround && !this.swimming && this.swordEquipped) {
       this.attackLock = true
       this.attackLockTimer = (this.animDurations.get('sword_attack_c') ?? 0.7) * 0.7
       this.playAnim('sword_attack_c')
@@ -534,18 +579,26 @@ export class Player {
       if (!showTrail) this.slashTrail.start()
     }
 
-    // ── Debug: apply slider values to swordTipNode ─────────────────────────
-    if (this.debugMode && this.swordTipNode) {
+    // ── Debug: apply slider values to swordTipNode + shieldRoot ─────────────
+    if (this.debugMode) {
       const gv = (id: string) => parseFloat((document.getElementById(id) as HTMLInputElement)?.value ?? '0')
-      this.swordTipNode.position.set(gv('dbgTipX'), gv('dbgTipY'), gv('dbgTipZ'))
-      this.swordTipNode.rotation.set(gv('dbgTipRX'), gv('dbgTipRY'), gv('dbgTipRZ'))
-      // Rebuild trail if width changed
-      const newW = gv('dbgTrailW')
-      if (Math.abs(newW - this.trailWidth) > 0.01 && this.slashTrail) {
-        this.trailWidth = newW
-        this.slashTrail.dispose()
-        this.slashTrail = new TrailMesh('slashTrail', this.swordTipNode, this.scene, newW, 30, true)
-        if (this.trailMat) this.slashTrail.material = this.trailMat
+      if (this.swordTipNode) {
+        this.swordTipNode.position.set(gv('dbgTipX'), gv('dbgTipY'), gv('dbgTipZ'))
+        this.swordTipNode.rotation.set(gv('dbgTipRX'), gv('dbgTipRY'), gv('dbgTipRZ'))
+        // Rebuild trail if width changed
+        const newW = gv('dbgTrailW')
+        if (Math.abs(newW - this.trailWidth) > 0.01 && this.slashTrail) {
+          this.trailWidth = newW
+          this.slashTrail.dispose()
+          this.slashTrail = new TrailMesh('slashTrail', this.swordTipNode, this.scene, newW, 30, true)
+          if (this.trailMat) this.slashTrail.material = this.trailMat
+        }
+      }
+      if (this.shieldRoot) {
+        this.shieldRoot.position.set(gv('dbgShX'), gv('dbgShY'), gv('dbgShZ'))
+        this.shieldRoot.rotation.set(gv('dbgShRX'), gv('dbgShRY'), gv('dbgShRZ'))
+        const sc = gv('dbgShSc')
+        if (sc > 0) this.shieldRoot.scaling.setAll(sc)
       }
     }
 
@@ -733,6 +786,8 @@ export class Player {
       this.currentAnim === 'sword_attack_c'
     )
   }
+
+  getAttackAnim(): AnimState { return this.currentAnim }
 
   getSwordTip(): Vector3 {
     if (!this.swordRoot) return this.position.clone()

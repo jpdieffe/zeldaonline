@@ -1,0 +1,1 @@
+import{p as e}from"./index-CRPLgVzU.js";export{e as spritesPixelShader};

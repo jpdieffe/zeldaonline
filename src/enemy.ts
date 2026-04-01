@@ -115,6 +115,9 @@ export class Enemy {
   hitRadius: number
   damage: number
 
+  // Knockback
+  private knockVel = Vector3.Zero()
+
   // AI State
   private state: 'idle' | 'chase' | 'attack' | 'dead' = 'idle'
   private wanderTimer = 0
@@ -292,6 +295,15 @@ export class Enemy {
       }
     }
 
+    // Apply knockback velocity
+    if (this.knockVel.length() > 0.05) {
+      this.position.addInPlace(this.knockVel.scale(dt))
+      // Friction
+      this.knockVel.scaleInPlace(1 - 5 * dt)
+    } else {
+      this.knockVel.set(0, 0, 0)
+    }
+
     // Stay on ground
     this.position.y = this.getGroundY(this.position.x, this.position.z)
 
@@ -331,6 +343,10 @@ export class Enemy {
       this.deathTimer = RESPAWN_TIME
       this.playAnim('death')
     }
+  }
+
+  knockBack(dir: Vector3, force: number) {
+    this.knockVel = dir.scale(force)
   }
 
   private flashRed() {

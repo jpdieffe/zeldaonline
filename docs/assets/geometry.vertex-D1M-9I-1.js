@@ -1,0 +1,1 @@
+import{B as e}from"./index-CRPLgVzU.js";export{e as geometryVertexShaderWGSL};

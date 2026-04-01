@@ -1,0 +1,1 @@
+import{G as e}from"./index-CRPLgVzU.js";export{e as rsmGlobalIlluminationPixelShaderWGSL};

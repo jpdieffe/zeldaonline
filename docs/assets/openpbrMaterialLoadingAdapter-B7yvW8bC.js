@@ -1,0 +1,1 @@
+import{r as e}from"./index-CRPLgVzU.js";export{e as OpenPBRMaterialLoadingAdapter};

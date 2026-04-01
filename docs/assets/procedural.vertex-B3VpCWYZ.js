@@ -1,0 +1,1 @@
+import{Vn as e}from"./index-CRPLgVzU.js";export{e as proceduralVertexShader};

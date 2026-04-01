@@ -349,17 +349,12 @@ function startGame(seed?: string) {
       enemyMgr.update(dt, positions, (enemy) => {
         const ep = enemy.getPosition()
         const pp = player.getPosition()
-        const edx = ep.x - pp.x
-        const edz = ep.z - pp.z
-        const dist = Math.sqrt(edx * edx + edz * edz)
-        if (dist < enemy.hitRadius + 0.3) {
-          // Knockback player away from enemy
-          const knockDir = pp.subtract(ep)
-          knockDir.y = 0
-          if (knockDir.length() > 0.01) knockDir.normalize()
-          player.knockBack(knockDir, 30)
-          player.takeDamage(enemy.damage)
-        }
+        // Knockback player away from enemy
+        const knockDir = pp.subtract(ep)
+        knockDir.y = 0
+        if (knockDir.length() > 0.01) knockDir.normalize()
+        player.knockBack(knockDir, 150)
+        player.takeDamage(enemy.damage)
       })
     } else if (network.lastEnemyStates && network.enemyStatesVersion !== lastEnemyVersion) {
       lastEnemyVersion = network.enemyStatesVersion

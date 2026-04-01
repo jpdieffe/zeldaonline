@@ -1,1 +1,0 @@
-import{Xn as e}from"./index-D27volfj.js";export{e as backgroundVertexShaderWGSL};

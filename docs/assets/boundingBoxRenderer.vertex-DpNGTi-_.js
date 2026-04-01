@@ -1,1 +1,0 @@
-import{I as e}from"./index-D27volfj.js";export{e as boundingBoxRendererVertexShaderWGSL};

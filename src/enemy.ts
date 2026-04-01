@@ -130,6 +130,7 @@ export class Enemy {
   private lunging = false
   private lungeVel = Vector3.Zero()
   private lungeTimer = 0
+  private lungeHit = false
 
   constructor(scene: Scene, ground: GroundMesh, typeDef: EnemyTypeDef, spawnPos: Vector3, rng: () => number = Math.random) {
     this.scene = scene
@@ -366,12 +367,12 @@ export class Enemy {
           } else {
             // Melee: lunge toward player
             this.lunging = true
+            this.lungeHit = false
             this.lungeTimer = 0.4
             const dir = toPlayer.length() > 0.01 ? toPlayer.normalize() : Vector3.Forward()
             this.lungeVel = dir.scale(this.speed * 4)
             this.lungeVel.y = 8  // jump arc
             this.playAnim('bite')
-            wantAttack = true
           }
         } else {
           this.playAnim(this.lunging ? 'bite' : 'idle')
@@ -379,11 +380,15 @@ export class Enemy {
       }
     }
 
-    // Lunge movement
+    // Lunge movement — check hit each frame during lunge
     if (this.lunging) {
       this.lungeTimer -= dt
       this.lungeVel.y -= 20 * dt  // gravity
       this.position.addInPlace(this.lungeVel.scale(dt))
+      if (!this.lungeHit && dist < this.hitRadius + 1.0) {
+        this.lungeHit = true
+        wantAttack = true
+      }
       if (this.lungeTimer <= 0) {
         this.lunging = false
         this.lungeVel.set(0, 0, 0)

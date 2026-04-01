@@ -1,1 +1,0 @@
-import{f as e}from"./index-CGpeUPQy.js";export{e as spritesVertexShader};

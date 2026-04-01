@@ -1,1 +1,0 @@
-import{$n as e}from"./index-CGpeUPQy.js";export{e as lightProxyVertexShader};

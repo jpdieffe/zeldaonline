@@ -873,11 +873,11 @@ export class Player {
     const dx = attackOrigin.x - this.position.x
     const dz = attackOrigin.z - this.position.z
     const angleToAttacker = Math.atan2(dx, dz)
-    // Angle difference (wrapped to -PI..PI)
-    let diff = angleToAttacker - this.facingY
+    // Shield faces facingY - PI (facingY has +PI offset for model back-to-camera)
+    let diff = angleToAttacker - this.facingY + Math.PI
     while (diff > Math.PI) diff -= Math.PI * 2
     while (diff < -Math.PI) diff += Math.PI * 2
-    // Block if attacker is within ±60° of facing (120° frontal arc)
+    // Block if attacker is within ±60° of shield direction (120° frontal arc)
     return Math.abs(diff) < Math.PI / 3
   }
 

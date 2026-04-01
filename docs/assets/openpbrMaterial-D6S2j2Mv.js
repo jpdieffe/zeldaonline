@@ -1,1 +1,0 @@
-import{Un as e}from"./index-CGpeUPQy.js";export{e as OpenPBRMaterial};

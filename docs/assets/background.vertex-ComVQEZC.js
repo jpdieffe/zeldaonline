@@ -1,1 +1,0 @@
-import{Jn as e}from"./index-CGpeUPQy.js";export{e as backgroundVertexShader};

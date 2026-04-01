@@ -222,7 +222,7 @@ export class Player {
     if (this.keys.has('q') && this.onGround && !this.attackLock && !this.swimming) {
       this.keys.delete('q')
       this.attackLock = true
-      this.attackLockTimer = 0.7
+      this.attackLockTimer = this.animDurations.get('roll') ?? 0.8
       this.playAnim('roll')
     }
 
@@ -233,8 +233,9 @@ export class Player {
     if (this.keys.has('a') || this.keys.has('arrowleft'))  moveX -= 1
     if (this.keys.has('d') || this.keys.has('arrowright')) moveX += 1
 
-    const camToPlayer = this.camera.target.subtract(this.camera.position)
-    const forward = new Vector3(camToPlayer.x, 0, camToPlayer.z).normalize()
+    // Derive forward from camera alpha so mouse steering is always accurate
+    const alpha = this.camera.alpha
+    const forward = new Vector3(-Math.sin(alpha), 0, -Math.cos(alpha)).normalize()
     const right   = new Vector3(forward.z, 0, -forward.x)
 
     const moveDir = forward.scale(moveZ).add(right.scale(moveX))

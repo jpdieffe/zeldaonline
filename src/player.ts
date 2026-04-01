@@ -95,7 +95,7 @@ export class Player {
   // Skin swap
   private skinNames = ['player', 'link']
   private skinScales = [MODEL_SCALE, MODEL_SCALE * 2]
-  private skinIndex = 0
+  private skinIndex = 1
   private skinRoots: TransformNode[] = []
   private skinMeshSets: AbstractMesh[][] = []
   private skinAnimSets: Map<AnimState, AnimationGroup>[] = []
@@ -120,12 +120,12 @@ export class Player {
   private slashTrail: TrailMesh | null = null
   private trailMat: StandardMaterial | null = null
   private trailWidth = 0.35
-  swordEquipped = false
+  swordEquipped = true
 
   // Shield
   private shieldRoot: TransformNode | null = null
   private shieldMeshes: AbstractMesh[] = []
-  shieldEquipped = false
+  shieldEquipped = true
 
   // Thrown sword
   private thrownActive = false
@@ -300,8 +300,8 @@ export class Player {
       this.skinDurationSets.push(durs)
     }
 
-    // Activate first skin, hide others
-    this.switchSkin(0)
+    // Activate link skin by default
+    this.switchSkin(1)
     this.animsLoaded = true
     this.playAnim('idle')
 
@@ -386,8 +386,8 @@ export class Player {
     this.slashTrail.isVisible = false
 
     this.swordMeshes = result.meshes.filter(m => m !== result.meshes[0])
-    // Start hidden
-    this.setSwordVisible(false)
+    // Start visible (sword equipped by default)
+    this.setSwordVisible(true)
 
     // Load shield and attach to left hand
     await this.loadShield()
@@ -412,7 +412,7 @@ export class Player {
     glbRoot.scaling.setAll(1)
 
     this.shieldMeshes = result.meshes.filter(m => m !== result.meshes[0])
-    this.setShieldVisible(false)
+    this.setShieldVisible(true)
   }
 
   private setSwordVisible(visible: boolean) {
@@ -799,6 +799,7 @@ export class Player {
       ry: this.facingY,
       anim: this.currentAnim,
       sword: this.swordEquipped,
+      shield: this.shieldEquipped,
       skin: this.skinNames[this.skinIndex],
     }
   }

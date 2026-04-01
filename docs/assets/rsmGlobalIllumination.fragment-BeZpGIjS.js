@@ -1,0 +1,1 @@
+import{G as e}from"./index-WQOntL9j.js";export{e as rsmGlobalIlluminationPixelShaderWGSL};

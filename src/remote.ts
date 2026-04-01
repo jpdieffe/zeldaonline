@@ -49,13 +49,14 @@ const ONE_SHOT: Set<AnimState> = new Set([
 ])
 
 const SKIN_NAMES = ['player', 'link']
+const SKIN_SCALES = [MODEL_SCALE, MODEL_SCALE * 2]
 
 export class RemotePlayer {
   private scene: Scene
   private root: TransformNode | null = null
   private animGroups = new Map<AnimState, AnimationGroup>()
   private currentAnim: AnimState = 'idle'
-  private currentSkin = 'player'
+  private currentSkin = 'link'
 
   private skinRoots: TransformNode[] = []
   private skinMeshSets: AbstractMesh[][] = []
@@ -65,7 +66,10 @@ export class RemotePlayer {
   private targetPos = Vector3.Zero()
   private targetRotY = 0
   private swordMeshes: AbstractMesh[] = []
-  private swordEquipped = false
+  private swordEquipped = true
+  private shieldPivot: TransformNode | null = null
+  private shieldMeshes: AbstractMesh[] = []
+  private shieldEquipped = true
 
   constructor(scene: Scene) {
     this.scene = scene
@@ -79,11 +83,12 @@ export class RemotePlayer {
     this.root = new TransformNode('remotePivot', this.scene)
 
     // Load all skins
-    for (const skinName of SKIN_NAMES) {
+    for (let si = 0; si < SKIN_NAMES.length; si++) {
+      const skinName = SKIN_NAMES[si]
       const result = await SceneLoader.ImportMeshAsync('', './assets/player/', `${skinName}.glb`, this.scene)
       const skinRoot = result.meshes[0] as unknown as TransformNode
       skinRoot.parent = this.root
-      skinRoot.scaling.setAll(MODEL_SCALE)
+      skinRoot.scaling.setAll(SKIN_SCALES[si])
       this.skinRoots.push(skinRoot)
       this.skinMeshSets.push(result.meshes.slice(1) as AbstractMesh[])
 
@@ -99,13 +104,13 @@ export class RemotePlayer {
       this.skinAnimSets.push(anims)
     }
 
-    // Activate default skin, hide others
-    this.switchSkin('player')
+    // Activate link skin by default
+    this.switchSkin('link')
     this.loaded = true
     this.playAnim('idle')
 
     // Load sword for remote player
-    const handBone = this.skinRoots[0].getChildTransformNodes(false)
+    const handBone = this.skinRoots[1].getChildTransformNodes(false)
       .find(n => n.name === 'hand_r')
     if (handBone) {
       const swordResult = await SceneLoader.ImportMeshAsync('', './assets/weapons/', 'sword.glb', this.scene)
@@ -116,7 +121,23 @@ export class RemotePlayer {
       const swordRoot = swordResult.meshes[0] as unknown as TransformNode
       swordRoot.parent = this.swordPivot
       this.swordMeshes = swordResult.meshes.filter(m => m !== swordResult.meshes[0])
-      for (const m of this.swordMeshes) m.isVisible = false
+      for (const m of this.swordMeshes) m.isVisible = true
+    }
+
+    // Load shield for remote player
+    const handBoneL = this.skinRoots[1].getChildTransformNodes(false)
+      .find(n => n.name === 'hand_l')
+    if (handBoneL) {
+      const shieldResult = await SceneLoader.ImportMeshAsync('', './assets/shields/', 'silver_shield.glb', this.scene)
+      this.shieldPivot = new TransformNode('shieldPivotRemote', this.scene)
+      this.shieldPivot.parent = handBoneL
+      this.shieldPivot.position.set(0, 0, 0)
+      this.shieldPivot.rotation.set(0.3, 1.65, 2.65)
+      this.shieldPivot.scaling.setAll(0.5)
+      const shieldRoot = shieldResult.meshes[0] as unknown as TransformNode
+      shieldRoot.parent = this.shieldPivot
+      this.shieldMeshes = shieldResult.meshes.filter(m => m !== shieldResult.meshes[0])
+      for (const m of this.shieldMeshes) m.isVisible = true
     }
   }
 
@@ -144,6 +165,13 @@ export class RemotePlayer {
       if (handBone) this.swordPivot.parent = handBone
     }
 
+    // Re-attach shield
+    if (this.shieldPivot) {
+      const handBoneL = this.skinRoots[idx].getChildTransformNodes(false)
+        .find(n => n.name === 'hand_l')
+      if (handBoneL) this.shieldPivot.parent = handBoneL
+    }
+
     // Restart current anim
     const cur = this.currentAnim
     this.currentAnim = 'idle'
@@ -168,6 +196,19 @@ export class RemotePlayer {
     if (state.sword !== this.swordEquipped) {
       this.swordEquipped = state.sword
       for (const m of this.swordMeshes) m.isVisible = state.sword
+    }
+    const wantShield = state.shield ?? false
+    if (wantShield !== this.shieldEquipped) {
+      this.shieldEquipped = wantShield
+      for (const m of this.shieldMeshes) m.isVisible = wantShield
+    }
+    // Update shield rotation based on anim (defend vs idle)
+    if (this.shieldPivot) {
+      if (state.anim === 'defend') {
+        this.shieldPivot.rotation.set(-0.4, 1.55, 1.15)
+      } else {
+        this.shieldPivot.rotation.set(0.3, 1.65, 2.65)
+      }
     }
     if (state.skin && state.skin !== this.currentSkin) {
       this.switchSkin(state.skin)

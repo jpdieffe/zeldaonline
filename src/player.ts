@@ -247,11 +247,11 @@ export class Player {
     if (this.keys.has('a') || this.keys.has('arrowleft'))  moveX -= 1
     if (this.keys.has('d') || this.keys.has('arrowright')) moveX += 1
 
-    // Derive forward from camera alpha so mouse steering is always accurate
+    // Derive forward from camera alpha
     // ArcRotateCamera offset = (R*sinβ*sinα, R*cosβ, R*sinβ*cosα)
-    // so look direction in XZ = (-sinα, 0, -cosα)
+    // Camera-to-target (forward) direction in XZ = (sinα, 0, cosα)
     const alpha = this.camera.alpha
-    const forward = new Vector3(-Math.sin(alpha), 0, -Math.cos(alpha)).normalize()
+    const forward = new Vector3(Math.sin(alpha), 0, Math.cos(alpha))
     const right   = new Vector3(forward.z, 0, -forward.x)
 
     const moveDir = forward.scale(moveZ).add(right.scale(moveX))

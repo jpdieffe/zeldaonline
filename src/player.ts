@@ -247,22 +247,19 @@ export class Player {
     if (this.keys.has('a') || this.keys.has('arrowleft'))  moveX -= 1
     if (this.keys.has('d') || this.keys.has('arrowright')) moveX += 1
 
-    // Derive forward from camera alpha
-    // ArcRotateCamera offset = (R*sinβ*sinα, R*cosβ, R*sinβ*cosα)
-    // Camera-to-target (forward) direction in XZ = (sinα, 0, cosα)
-    const alpha = this.camera.alpha
-    const forward = new Vector3(Math.sin(alpha), 0, Math.cos(alpha))
+    // Derive forward from actual camera→player vector (single source of truth)
+    const dx = this.position.x - this.camera.position.x
+    const dz = this.position.z - this.camera.position.z
+    const forward = new Vector3(dx, 0, dz).normalize()
     const right   = new Vector3(forward.z, 0, -forward.x)
 
     const moveDir = forward.scale(moveZ).add(right.scale(moveX))
     const moving  = moveDir.length() > 0.01
     if (moving) moveDir.normalize()
 
-    // Always face away from camera (camera→player direction)
+    // Facing = same forward direction (always show player's back)
     if (!this.attackLock) {
-      const dx = this.position.x - this.camera.position.x
-      const dz = this.position.z - this.camera.position.z
-      this.facingY = Math.atan2(dx, dz) + Math.PI
+      this.facingY = Math.atan2(forward.x, forward.z)
     }
 
     // Speed selection

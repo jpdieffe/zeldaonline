@@ -1,1 +1,0 @@
-import{$n as e}from"./index-CF4tJkwq.js";export{e as lightProxyVertexShader};

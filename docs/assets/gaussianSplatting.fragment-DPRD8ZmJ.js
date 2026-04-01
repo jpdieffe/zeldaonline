@@ -1,1 +1,0 @@
-import{xo as e}from"./index-ui-dGMPG.js";export{e as gaussianSplattingPixelShaderWGSL};

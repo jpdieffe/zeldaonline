@@ -5,16 +5,23 @@ import {
   SceneLoader,
   TransformNode,
   AnimationGroup,
+  AbstractMesh,
   GroundMesh,
 } from '@babylonjs/core'
 
 // ── Enemy type definitions ──────────────────────────────────────────────────
 type EnemyAnim = 'idle' | 'walk' | 'bite' | 'death'
 
+interface AnimEntry {
+  root: TransformNode
+  meshes: AbstractMesh[]
+  group: AnimationGroup | null
+}
+
 interface EnemyTypeDef {
   folder: string
-  anims: Record<EnemyAnim, string>   // anim name → glb file
-  scale: [number, number]            // random range
+  anims: Record<EnemyAnim, string>   // anim key → glb filename
+  scale: [number, number]
   speed: [number, number]
   health: [number, number]
   damage: number
@@ -69,14 +76,14 @@ export class Enemy {
   private ground: GroundMesh
   private typeDef: EnemyTypeDef
 
-  private root: TransformNode | null = null
-  private animGroups: Partial<Record<EnemyAnim, AnimationGroup>> = {}
+  // Each animation has its own root + meshes + animation group (from its own GLB)
+  private entries: Partial<Record<EnemyAnim, AnimEntry>> = {}
   private currentAnim: EnemyAnim = 'idle'
   private loaded = false
+  private facingY = 0
 
   position: Vector3
   private spawnPos: Vector3
-  private velocity = Vector3.Zero()
   private health: number
   private maxHealth: number
   private speed: number
@@ -87,7 +94,7 @@ export class Enemy {
   hitRadius: number
   damage: number
 
-  // State
+  // AI State
   private state: 'idle' | 'chase' | 'attack' | 'dead' = 'idle'
   private wanderTimer = 0
   private wanderDir = Vector3.Zero()
@@ -112,48 +119,82 @@ export class Enemy {
   private async load() {
     const folder = `./assets/bad_guys/${this.typeDef.folder}/`
 
-    // Load each animation GLB separately
+    // Deduplicate: if two anims point to same file, share the entry
+    const fileToAnim = new Map<string, EnemyAnim>()
+    const animAliases = new Map<EnemyAnim, EnemyAnim>()
+
     for (const [animKey, fileName] of Object.entries(this.typeDef.anims) as [EnemyAnim, string][]) {
+      if (fileToAnim.has(fileName)) {
+        // This anim uses the same file as another — alias it
+        animAliases.set(animKey, fileToAnim.get(fileName)!)
+      } else {
+        fileToAnim.set(fileName, animKey)
+      }
+    }
+
+    // Load each unique GLB
+    for (const [fileName, animKey] of fileToAnim) {
       try {
         const result = await SceneLoader.ImportMeshAsync('', folder, fileName, this.scene)
         const root = result.meshes[0] as unknown as TransformNode
+        root.scaling.setAll(this.scale)
+        root.position.copyFrom(this.position)
 
-        if (animKey === 'idle') {
-          // Use the first loaded as our root
-          this.root = root
-          this.root.scaling.setAll(this.scale)
-          this.root.position.copyFrom(this.position)
-        } else {
-          // Hide all meshes from non-idle GLBs, we only want the animations
-          result.meshes.forEach(m => { m.isVisible = false })
-        }
+        const meshes = result.meshes.filter(m => m !== result.meshes[0])
+        // Hide all initially
+        meshes.forEach(m => { m.isVisible = false })
 
-        // Retarget animations to our root skeleton
-        if (result.animationGroups.length > 0) {
-          const group = result.animationGroups[0]
-          group.stop()
-          this.animGroups[animKey] = group
-        }
+        const group = result.animationGroups.length > 0 ? result.animationGroups[0] : null
+        if (group) group.stop()
+
+        this.entries[animKey] = { root, meshes, group }
       } catch (e) {
         console.warn(`Failed to load ${folder}${fileName}:`, e)
       }
     }
 
-    if (this.root) {
-      this.loaded = true
-      this.playAnim('idle')
+    // Set up aliases
+    for (const [alias, target] of animAliases) {
+      if (this.entries[target]) {
+        this.entries[alias] = this.entries[target]
+      }
     }
+
+    if (Object.keys(this.entries).length > 0) {
+      this.loaded = true
+      this.showAnim('idle')
+    }
+  }
+
+  /** Show one animation's meshes, hide all others, play its animation */
+  private showAnim(anim: EnemyAnim) {
+    if (!this.loaded) return
+
+    // Stop previous animation
+    const prevEntry = this.entries[this.currentAnim]
+    if (prevEntry?.group) prevEntry.group.stop()
+
+    // Hide all meshes
+    for (const entry of Object.values(this.entries)) {
+      if (!entry) continue
+      entry.meshes.forEach(m => { m.isVisible = false })
+    }
+
+    // Show + play the target animation
+    const entry = this.entries[anim]
+    if (entry) {
+      entry.meshes.forEach(m => { m.isVisible = true })
+      if (entry.group) {
+        entry.group.start(anim !== 'death', 1.0, entry.group.from, entry.group.to, false)
+      }
+    }
+
+    this.currentAnim = anim
   }
 
   private playAnim(anim: EnemyAnim) {
     if (anim === this.currentAnim || !this.loaded) return
-    const prev = this.animGroups[this.currentAnim]
-    if (prev) prev.stop()
-    const next = this.animGroups[anim]
-    if (next) {
-      next.start(anim !== 'death', 1.0, next.from, next.to, false)
-    }
-    this.currentAnim = anim
+    this.showAnim(anim)
   }
 
   private getGroundY(x: number, z: number): number {
@@ -223,18 +264,18 @@ export class Enemy {
     // Stay on ground
     this.position.y = this.getGroundY(this.position.x, this.position.z)
 
-    // Face player when chasing/attacking
+    // Facing direction
     if (this.state === 'chase' || this.state === 'attack') {
-      if (this.root) {
-        this.root.rotation.y = Math.atan2(toPlayer.x, toPlayer.z)
-      }
-    } else if (this.wanderDir.length() > 0.01 && this.root) {
-      this.root.rotation.y = Math.atan2(this.wanderDir.x, this.wanderDir.z)
+      this.facingY = Math.atan2(toPlayer.x, toPlayer.z)
+    } else if (this.wanderDir.length() > 0.01) {
+      this.facingY = Math.atan2(this.wanderDir.x, this.wanderDir.z)
     }
 
-    // Sync model position
-    if (this.root) {
-      this.root.position.copyFrom(this.position)
+    // Sync ALL roots to current position + rotation
+    for (const entry of Object.values(this.entries)) {
+      if (!entry) continue
+      entry.root.position.copyFrom(this.position)
+      entry.root.rotation.y = this.facingY
     }
 
     return { wantAttack }
@@ -259,19 +300,7 @@ export class Enemy {
     this.position.y = this.getGroundY(this.position.x, this.position.z)
     this.state = 'idle'
     this.wanderTimer = 0
-    if (this.root) {
-      this.root.position.copyFrom(this.position)
-    }
-    // Show meshes again
-    this.setVisible(true)
     this.playAnim('idle')
-  }
-
-  private setVisible(visible: boolean) {
-    if (!this.root) return
-    ;(this.root as any).getChildMeshes?.(false)?.forEach((m: any) => {
-      m.isVisible = visible
-    })
   }
 
   isDead(): boolean { return this.dead }
@@ -280,7 +309,11 @@ export class Enemy {
   getMaxHealth(): number { return this.maxHealth }
 
   dispose() {
-    this.root?.dispose()
+    for (const entry of Object.values(this.entries)) {
+      if (!entry) continue
+      entry.group?.stop()
+      entry.root.dispose()
+    }
   }
 }
 

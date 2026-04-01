@@ -1,0 +1,1 @@
+import{Kn as e}from"./index-Cex6giOM.js";export{e as colorPixelShader};

@@ -48,11 +48,18 @@ const ONE_SHOT: Set<AnimState> = new Set([
   'fighting_jab_l', 'fighting_jab_r',
 ])
 
+const SKIN_NAMES = ['player', 'link']
+
 export class RemotePlayer {
   private scene: Scene
   private root: TransformNode | null = null
   private animGroups = new Map<AnimState, AnimationGroup>()
   private currentAnim: AnimState = 'idle'
+  private currentSkin = 'player'
+
+  private skinRoots: TransformNode[] = []
+  private skinMeshSets: AbstractMesh[][] = []
+  private skinAnimSets: Map<AnimState, AnimationGroup>[] = []
   private loaded = false
 
   private targetPos = Vector3.Zero()
@@ -65,38 +72,82 @@ export class RemotePlayer {
     this.load()
   }
 
+  private swordPivot: TransformNode | null = null
+
   private async load() {
-    const result = await SceneLoader.ImportMeshAsync('', './assets/player/', 'player.glb', this.scene)
+    // Create a root pivot for position/rotation
+    this.root = new TransformNode('remotePivot', this.scene)
 
-    this.root = result.meshes[0] as unknown as TransformNode
-    this.root.scaling.setAll(MODEL_SCALE)
+    // Load all skins
+    for (const skinName of SKIN_NAMES) {
+      const result = await SceneLoader.ImportMeshAsync('', './assets/player/', `${skinName}.glb`, this.scene)
+      const skinRoot = result.meshes[0] as unknown as TransformNode
+      skinRoot.parent = this.root
+      skinRoot.scaling.setAll(MODEL_SCALE)
+      this.skinRoots.push(skinRoot)
+      this.skinMeshSets.push(result.meshes.slice(1) as AbstractMesh[])
 
-    for (const [state, glbName] of Object.entries(ANIM_NAME_MAP) as [AnimState, string][]) {
-      const group = result.animationGroups.find(g => g.name === glbName)
-      if (group) {
-        group.stop()
-        group.loopAnimation = !ONE_SHOT.has(state)
-        this.animGroups.set(state, group)
+      const anims = new Map<AnimState, AnimationGroup>()
+      for (const [state, glbName] of Object.entries(ANIM_NAME_MAP) as [AnimState, string][]) {
+        const group = result.animationGroups.find(g => g.name === glbName)
+        if (group) {
+          group.stop()
+          group.loopAnimation = !ONE_SHOT.has(state)
+          anims.set(state, group)
+        }
       }
+      this.skinAnimSets.push(anims)
     }
 
+    // Activate default skin, hide others
+    this.switchSkin('player')
     this.loaded = true
     this.playAnim('idle')
 
     // Load sword for remote player
-    const handBone = this.root!.getChildTransformNodes(false)
+    const handBone = this.skinRoots[0].getChildTransformNodes(false)
       .find(n => n.name === 'hand_r')
     if (handBone) {
       const swordResult = await SceneLoader.ImportMeshAsync('', './assets/weapons/', 'sword.glb', this.scene)
-      const swordPivot = new TransformNode('swordPivotRemote', this.scene)
-      swordPivot.parent = handBone
-      swordPivot.position.set(0, 0.35, 0.25)
-      swordPivot.rotation.set(2.3, 0, 0)
+      this.swordPivot = new TransformNode('swordPivotRemote', this.scene)
+      this.swordPivot.parent = handBone
+      this.swordPivot.position.set(0, 0.35, 0.25)
+      this.swordPivot.rotation.set(2.3, 0, 0)
       const swordRoot = swordResult.meshes[0] as unknown as TransformNode
-      swordRoot.parent = swordPivot
+      swordRoot.parent = this.swordPivot
       this.swordMeshes = swordResult.meshes.filter(m => m !== swordResult.meshes[0])
       for (const m of this.swordMeshes) m.isVisible = false
     }
+  }
+
+  private switchSkin(name: string) {
+    const idx = SKIN_NAMES.indexOf(name)
+    if (idx < 0) return
+
+    // Stop current anims
+    for (const ag of this.animGroups.values()) ag.stop()
+
+    // Hide all skins
+    for (const meshes of this.skinMeshSets) {
+      for (const m of meshes) m.isVisible = false
+    }
+
+    // Show target skin
+    for (const m of this.skinMeshSets[idx]) m.isVisible = true
+    this.animGroups = this.skinAnimSets[idx]
+    this.currentSkin = name
+
+    // Re-attach sword
+    if (this.swordPivot) {
+      const handBone = this.skinRoots[idx].getChildTransformNodes(false)
+        .find(n => n.name === 'hand_r')
+      if (handBone) this.swordPivot.parent = handBone
+    }
+
+    // Restart current anim
+    const cur = this.currentAnim
+    this.currentAnim = 'idle'
+    this.playAnim(cur)
   }
 
   private playAnim(a: AnimState) {
@@ -117,6 +168,9 @@ export class RemotePlayer {
     if (state.sword !== this.swordEquipped) {
       this.swordEquipped = state.sword
       for (const m of this.swordMeshes) m.isVisible = state.sword
+    }
+    if (state.skin && state.skin !== this.currentSkin) {
+      this.switchSkin(state.skin)
     }
   }
 

@@ -17,6 +17,7 @@ export interface PlayerState {
   ry: number
   anim: AnimState
   sword: boolean
+  skin?: string
 }
 
 /** Network message envelope */

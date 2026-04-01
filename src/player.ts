@@ -92,6 +92,14 @@ export class Player {
   private currentAnim: AnimState = 'idle'
   private animsLoaded = false
 
+  // Skin swap
+  private skinNames = ['player', 'link']
+  private skinIndex = 0
+  private skinRoots: TransformNode[] = []
+  private skinMeshSets: AbstractMesh[][] = []
+  private skinAnimSets: Map<AnimState, AnimationGroup>[] = []
+  private skinDurationSets: Map<AnimState, number>[] = []
+
   // Combat
   private swordComboIndex = 0               // 0-2 cycles through A, B, C
   private comboTimer = 0                    // time left to chain next combo
@@ -219,6 +227,9 @@ export class Player {
           this.setSwordVisible(true)
         }
       }
+      if (e.key === '3' && this.animsLoaded) {
+        this.switchSkin((this.skinIndex + 1) % this.skinNames.length)
+      }
     })
     window.addEventListener('keyup', (e) => {
       this.keys.delete(e.key.toLowerCase())
@@ -238,39 +249,78 @@ export class Player {
 
   // ── Model ─────────────────────────────────────────────────────────────────
   private async loadModel() {
-    const result = await SceneLoader.ImportMeshAsync('', './assets/player/', 'player.glb', this.scene)
-
-    // Create a pivot node we control for position + rotation.
-    // Parent the GLB's __root__ under it so glTF transforms don't fight us.
     this.modelPivot = new TransformNode('playerPivot', this.scene)
-    this.modelRoot = result.meshes[0] as unknown as TransformNode
-    this.modelRoot.parent = this.modelPivot
-    this.modelRoot.scaling.setAll(MODEL_SCALE)
 
-    // Map animation groups by our AnimState key
-    for (const [state, glbName] of Object.entries(ANIM_NAME_MAP) as [AnimState, string][]) {
-      const group = result.animationGroups.find(g => g.name === glbName)
-      if (group) {
-        group.stop()
-        group.loopAnimation = !ONE_SHOT.has(state)
-        this.animGroups.set(state, group)
-        // Store actual duration so attack lock timers match animation length
-        const fps = group.targetedAnimations[0]?.animation.framePerSecond ?? 30
-        this.animDurations.set(state, (group.to - group.from) / fps)
-      } else {
-        console.warn(`Animation not found: ${glbName}`)
+    // Load all skins
+    for (const skinName of this.skinNames) {
+      const result = await SceneLoader.ImportMeshAsync('', './assets/player/', `${skinName}.glb`, this.scene)
+      const root = result.meshes[0] as unknown as TransformNode
+      root.parent = this.modelPivot
+      root.scaling.setAll(MODEL_SCALE)
+      this.skinRoots.push(root)
+      this.skinMeshSets.push(result.meshes.slice(1) as AbstractMesh[])
+
+      const anims = new Map<AnimState, AnimationGroup>()
+      const durs = new Map<AnimState, number>()
+      for (const [state, glbName] of Object.entries(ANIM_NAME_MAP) as [AnimState, string][]) {
+        const group = result.animationGroups.find(g => g.name === glbName)
+        if (group) {
+          group.stop()
+          group.loopAnimation = !ONE_SHOT.has(state)
+          anims.set(state, group)
+          const fps = group.targetedAnimations[0]?.animation.framePerSecond ?? 30
+          durs.set(state, (group.to - group.from) / fps)
+        }
       }
+      this.skinAnimSets.push(anims)
+      this.skinDurationSets.push(durs)
     }
 
+    // Activate first skin, hide others
+    this.switchSkin(0)
     this.animsLoaded = true
     this.playAnim('idle')
 
-    // Load sword and attach to left hand bone
+    // Load sword and attach to hand bone
     await this.loadSword()
   }
 
+  private switchSkin(index: number) {
+    // Stop current anims
+    const prevAnims = this.skinAnimSets[this.skinIndex]
+    if (prevAnims) {
+      const prev = prevAnims.get(this.currentAnim)
+      if (prev) prev.stop()
+    }
+
+    // Hide all skins
+    for (let i = 0; i < this.skinRoots.length; i++) {
+      for (const m of this.skinMeshSets[i]) m.isVisible = false
+    }
+
+    this.skinIndex = index
+    this.modelRoot = this.skinRoots[index]
+    this.animGroups = this.skinAnimSets[index]
+    this.animDurations = this.skinDurationSets[index]
+
+    // Show active skin
+    for (const m of this.skinMeshSets[index]) m.isVisible = true
+
+    // Re-attach sword to new skeleton's hand_r
+    if (this.swordRoot) {
+      const handBone = this.modelRoot.getChildTransformNodes(false)
+        .find(n => n.name === 'hand_r')
+      if (handBone) this.swordRoot.parent = handBone
+    }
+
+    // Restart current anim on new skin
+    const cur = this.currentAnim
+    this.currentAnim = 'idle' // force playAnim to actually play
+    if (this.animsLoaded) this.playAnim(cur)
+  }
+
   private async loadSword() {
-    const handBone = this.modelPivot!.getChildTransformNodes(false)
+    const handBone = this.skinRoots[this.skinIndex].getChildTransformNodes(false)
       .find(n => n.name === 'hand_r')
     if (!handBone) { console.warn('hand_r bone not found'); return }
 
@@ -291,10 +341,11 @@ export class Player {
     // Tip node extends past the sword for trail + extra reach
     this.swordTipNode = new TransformNode('swordTip', this.scene)
     this.swordTipNode.parent = this.swordRoot
-    this.swordTipNode.position.set(0, 1.2, 0)  // beyond the blade tip
+    this.swordTipNode.position.set(-0.1, 0.35, -0.5)
+    this.swordTipNode.rotation.set(-0.65, -0.5, 0.55)
 
     // Trail mesh follows the tip node
-    this.slashTrail = new TrailMesh('slashTrail', this.swordTipNode, this.scene, 0.35, 30, true)
+    this.slashTrail = new TrailMesh('slashTrail', this.swordTipNode, this.scene, 0.2, 30, true)
     this.trailMat = new StandardMaterial('slashTrailMat', this.scene)
     this.trailMat.emissiveColor = new Color3(0.9, 0.95, 1.0)
     this.trailMat.diffuseColor = new Color3(0.7, 0.85, 1.0)
@@ -669,6 +720,7 @@ export class Player {
       ry: this.facingY,
       anim: this.currentAnim,
       sword: this.swordEquipped,
+      skin: this.skinNames[this.skinIndex],
     }
   }
 

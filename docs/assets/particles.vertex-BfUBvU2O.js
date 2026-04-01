@@ -1,0 +1,1 @@
+import{_n as e}from"./index-D8RkidOT.js";export{e as particlesVertexShaderWGSL};

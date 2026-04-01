@@ -401,7 +401,8 @@ export class Player {
     this.shieldRoot = new TransformNode('shieldPivot', this.scene)
     this.shieldRoot.parent = handBone
     this.shieldRoot.position.set(0, 0, 0)
-    this.shieldRoot.rotation.set(0, 0, 0)
+    this.shieldRoot.rotation.set(0.3, 1.65, 2.65)
+    this.shieldRoot.scaling.setAll(0.5)
 
     const result = await SceneLoader.ImportMeshAsync('', './assets/shields/', 'silver_shield.glb', this.scene)
     const glbRoot = result.meshes[0] as unknown as TransformNode
@@ -602,6 +603,13 @@ export class Player {
       this.shieldRoot.rotation.set(gv('dbgShRX'), gv('dbgShRY'), gv('dbgShRZ'))
       const sc = gv('dbgShSc')
       if (sc > 0) this.shieldRoot.scaling.setAll(sc)
+    } else if (this.shieldRoot) {
+      // Switch shield rotation based on defend state
+      if (this.isDefendingState) {
+        this.shieldRoot.rotation.set(-0.4, 1.55, 1.15)
+      } else {
+        this.shieldRoot.rotation.set(0.3, 1.65, 2.65)
+      }
     }
 
     // ── Camera follow ─────────────────────────────────────────────────────

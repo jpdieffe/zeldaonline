@@ -241,23 +241,27 @@ function startGame(seed?: string) {
     wasAttacking = attacking
 
     if (attacking) {
-      const ppos = player.getPosition()
-      for (const enemy of enemyMgr.getEnemies()) {
-        if (enemy.isDead()) continue
-        // Allow re-hit if this is a different attack animation than what last hit them
-        if (hitEnemyAnim.get(enemy) === atkAnim) continue
-        const edx = enemy.getPosition().x - ppos.x
-        const edz = enemy.getPosition().z - ppos.z
-        const dist = Math.sqrt(edx * edx + edz * edz)
-        if (dist < 3.5) {
-          enemy.takeDamage(1)
-          hitEnemyAnim.set(enemy, atkAnim)
-          // 3rd hit (sword_attack_c) knocks the enemy back hard
-          if (atkAnim === 'sword_attack_c') {
-            const dir = enemy.getPosition().subtract(ppos)
-            dir.y = 0
-            if (dir.length() > 0.01) dir.normalize()
-            enemy.knockBack(dir, 80)
+      const progress = player.getAttackProgress()
+      // Only register hits in the tail end of the swing (last 40%)
+      if (progress >= 0.6) {
+        const ppos = player.getPosition()
+        for (const enemy of enemyMgr.getEnemies()) {
+          if (enemy.isDead()) continue
+          // Allow re-hit if this is a different attack animation than what last hit them
+          if (hitEnemyAnim.get(enemy) === atkAnim) continue
+          const edx = enemy.getPosition().x - ppos.x
+          const edz = enemy.getPosition().z - ppos.z
+          const dist = Math.sqrt(edx * edx + edz * edz)
+          if (dist < 3.5) {
+            enemy.takeDamage(1)
+            hitEnemyAnim.set(enemy, atkAnim)
+            // 3rd hit (sword_attack_c) knocks the enemy back hard
+            if (atkAnim === 'sword_attack_c') {
+              const dir = enemy.getPosition().subtract(ppos)
+              dir.y = 0
+              if (dir.length() > 0.01) dir.normalize()
+              enemy.knockBack(dir, 80)
+            }
           }
         }
       }

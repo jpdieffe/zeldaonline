@@ -1,0 +1,1 @@
+import{Vn as e}from"./index-D4dKTBSJ.js";export{e as proceduralVertexShader};

@@ -103,9 +103,11 @@ export class Player {
 
   // Combat
   private swordComboIndex = 0               // 0-2 cycles through A, B, C
+  private comboRound = 0                    // 0 = first round (full speed), 1+ = slow
   private comboTimer = 0                    // time left to chain next combo
   private attackLock = false                // true while playing attack anim
   private attackLockTimer = 0
+  private attackDuration = 0                 // initial duration for progress calc
   private isDefendingState = false
 
   // Roll
@@ -508,8 +510,10 @@ export class Player {
     let speed = WALK_SPEED
     if (this.sprinting)  speed = RUN_SPEED
     else if (moving)     speed = JOG_SPEED
-    if (this.isDefendingState) speed = 0
-    else if (this.attackLock && !this.rolling && !this.dashing) speed = WALK_SPEED * 0.25
+    if (this.isDefendingState) speed = WALK_SPEED * 0.25
+    else if (this.attackLock && !this.rolling && !this.dashing) {
+      speed = this.comboRound === 0 ? speed : WALK_SPEED * 0.25
+    }
     if (this.swimming) speed = this.sprinting ? JOG_SPEED : WALK_SPEED
 
     // Rolling overrides: lunge forward in the facing direction
@@ -635,6 +639,7 @@ export class Player {
       this.comboTimer -= dt
       if (this.comboTimer <= 0) {
         this.swordComboIndex = 0
+        this.comboRound = 0
       }
     }
     if (this.jumpPhaseTimer > 0) {
@@ -652,8 +657,11 @@ export class Player {
     const duration = (this.animDurations.get(anim) ?? 0.7) * 0.7  // cut tail
     this.attackLock = true
     this.attackLockTimer = duration
+    this.attackDuration = duration
     this.comboTimer = duration + 0.3
-    this.swordComboIndex = (this.swordComboIndex + 1) % 3
+    const nextIndex = (this.swordComboIndex + 1) % 3
+    if (nextIndex < this.swordComboIndex) this.comboRound++
+    this.swordComboIndex = nextIndex
     this.playAnim(anim)
   }
 
@@ -816,6 +824,12 @@ export class Player {
       this.currentAnim === 'sword_attack_b' ||
       this.currentAnim === 'sword_attack_c'
     )
+  }
+
+  /** 0 = start, 1 = end of attack animation */
+  getAttackProgress(): number {
+    if (this.attackDuration <= 0) return 1
+    return 1 - (this.attackLockTimer / this.attackDuration)
   }
 
   isDashing(): boolean {

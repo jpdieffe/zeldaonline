@@ -8,6 +8,9 @@ import {
   AnimationGroup,
   GroundMesh,
   AbstractMesh,
+  TrailMesh,
+  StandardMaterial,
+  Color3,
 } from '@babylonjs/core'
 import type { AnimState, PlayerState } from './types'
 
@@ -104,6 +107,8 @@ export class Player {
   private swordMeshes: AbstractMesh[] = []
   private swordRoot: TransformNode | null = null
   private swordGlbRoot: TransformNode | null = null
+  private swordTipNode: TransformNode | null = null
+  private slashTrail: TrailMesh | null = null
   swordEquipped = false
 
   // Thrown sword
@@ -268,6 +273,22 @@ export class Player {
     glbRoot.scaling.setAll(1)
     this.swordGlbRoot = glbRoot
 
+    // Tip node extends past the sword for trail + extra reach
+    this.swordTipNode = new TransformNode('swordTip', this.scene)
+    this.swordTipNode.parent = this.swordRoot
+    this.swordTipNode.position.set(0, 1.2, 0)  // beyond the blade tip
+
+    // Trail mesh follows the tip node
+    this.slashTrail = new TrailMesh('slashTrail', this.swordTipNode, this.scene, 0.35, 30, true)
+    const trailMat = new StandardMaterial('slashTrailMat', this.scene)
+    trailMat.emissiveColor = new Color3(0.9, 0.95, 1.0)
+    trailMat.diffuseColor = new Color3(0.7, 0.85, 1.0)
+    trailMat.specularColor = new Color3(0, 0, 0)
+    trailMat.alpha = 0.5
+    trailMat.backFaceCulling = false
+    this.slashTrail.material = trailMat
+    this.slashTrail.isVisible = false
+
     this.swordMeshes = result.meshes.filter(m => m !== result.meshes[0])
     // Start hidden
     this.setSwordVisible(false)
@@ -429,6 +450,13 @@ export class Player {
       // Sink model to waist level when swimming
       if (this.swimming) this.modelPivot.position.y -= PLAYER_HEIGHT * 0.45
       this.modelPivot.rotation.y = this.facingY
+    }
+
+    // ── Slash trail visibility ─────────────────────────────────────────────
+    if (this.slashTrail) {
+      const showTrail = this.isAttacking()
+      this.slashTrail.isVisible = showTrail
+      if (!showTrail) this.slashTrail.start()
     }
 
     // ── Camera follow ─────────────────────────────────────────────────────

@@ -1,0 +1,1 @@
+import{M as e}from"./index-BOqHGpKC.js";export{e as lineVertexShaderWGSL};

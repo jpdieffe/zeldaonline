@@ -1,0 +1,1 @@
+import{wn as e}from"./index-BOqHGpKC.js";export{e as colorPixelShaderWGSL};

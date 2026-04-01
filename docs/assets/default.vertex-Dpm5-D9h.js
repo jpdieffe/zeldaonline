@@ -1,0 +1,1 @@
+import{jn as e}from"./index-BOqHGpKC.js";export{e as defaultVertexShader};

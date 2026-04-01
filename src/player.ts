@@ -80,7 +80,8 @@ export class Player {
   private mouseRight = false
 
   // Model
-  private modelRoot: TransformNode | null = null
+  private modelPivot: TransformNode | null = null  // parent we rotate
+  private modelRoot: TransformNode | null = null    // GLB __root__ inside pivot
   private animGroups = new Map<AnimState, AnimationGroup>()
   private animDurations = new Map<AnimState, number>()
   private currentAnim: AnimState = 'idle'
@@ -173,7 +174,11 @@ export class Player {
   private async loadModel() {
     const result = await SceneLoader.ImportMeshAsync('', './assets/player/', 'player.glb', this.scene)
 
+    // Create a pivot node we control for position + rotation.
+    // Parent the GLB's __root__ under it so glTF transforms don't fight us.
+    this.modelPivot = new TransformNode('playerPivot', this.scene)
     this.modelRoot = result.meshes[0] as unknown as TransformNode
+    this.modelRoot.parent = this.modelPivot
     this.modelRoot.scaling.setAll(MODEL_SCALE)
 
     // Map animation groups by our AnimState key
@@ -299,9 +304,9 @@ export class Player {
     this.updateAnimation(moving)
 
     // ── Sync model ────────────────────────────────────────────────────────
-    if (this.modelRoot) {
-      this.modelRoot.position.copyFrom(this.position)
-      this.modelRoot.rotation.y = this.facingY
+    if (this.modelPivot) {
+      this.modelPivot.position.copyFrom(this.position)
+      this.modelPivot.rotation.y = this.facingY
     }
 
     // ── Camera follow ─────────────────────────────────────────────────────

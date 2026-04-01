@@ -1,1 +1,0 @@
-import{I as e}from"./index-DGSpfzyF.js";export{e as boundingBoxRendererVertexShaderWGSL};

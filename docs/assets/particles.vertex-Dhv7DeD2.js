@@ -1,1 +1,0 @@
-import{yn as e}from"./index-DGSpfzyF.js";export{e as particlesVertexShader};

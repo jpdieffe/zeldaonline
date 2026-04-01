@@ -106,7 +106,7 @@ export class Player {
   private comboTimer = 0                    // time left to chain next combo
   private attackLock = false                // true while playing attack anim
   private attackLockTimer = 0
-  private isDefending = false
+  private isDefendingState = false
 
   // Roll
   private rolling = false
@@ -144,10 +144,12 @@ export class Player {
 
   // Sprint
   private sprinting = false
+  private dashing = false
+  private dashDir = Vector3.Zero()
 
   // Debug mode
   private debugMode = false
-  private debugAttackTimer = 0
+  private debugDefend = false
 
   // Health
   private maxHealth = 6
@@ -226,11 +228,20 @@ export class Player {
       }
       if (e.key.toLowerCase() === 't') {
         this.debugMode = !this.debugMode
+        this.debugDefend = false
         const panel = document.getElementById('debugPanel') as HTMLElement | null
         if (panel) panel.style.display = this.debugMode ? 'block' : 'none'
         if (this.debugMode) {
-          this.swordEquipped = true
-          this.setSwordVisible(true)
+          this.shieldEquipped = true
+          this.setShieldVisible(true)
+        }
+      }
+      if (e.key.toLowerCase() === 'y') {
+        this.debugMode = !this.debugMode
+        this.debugDefend = this.debugMode
+        const panel = document.getElementById('debugPanel') as HTMLElement | null
+        if (panel) panel.style.display = this.debugMode ? 'block' : 'none'
+        if (this.debugMode) {
           this.shieldEquipped = true
           this.setShieldVisible(true)
         }
@@ -434,18 +445,18 @@ export class Player {
 
     this.updateTimers(dt)
 
-    // ── Debug auto-attack ─────────────────────────────────────────────────
-    if (this.debugMode) {
-      this.debugAttackTimer -= dt
-      if (this.debugAttackTimer <= 0 && !this.attackLock) {
-        this.startAttack()
-        this.debugAttackTimer = 0.1 // chain immediately after current finishes
-      }
+    // ── Debug: force defend pose if Y-mode ────────────────────────────────
+    if (this.debugMode && this.debugDefend) {
+      this.isDefendingState = true
     }
 
     // ── Attack input (requires sword equipped) ───────────────────────────
     if (this.mouseLeft && !this.attackLock && this.onGround && !this.swimming && this.swordEquipped) {
-      this.startAttack()
+      if (this.sprinting) {
+        this.startDashAttack()
+      } else {
+        this.startAttack()
+      }
     }
     // Air attack: sword_attack_c while airborne
     if (this.mouseLeft && !this.attackLock && !this.onGround && !this.swimming && this.swordEquipped) {
@@ -455,7 +466,7 @@ export class Player {
     }
 
     // ── Defend ────────────────────────────────────────────────────────────
-    this.isDefending = this.mouseRight && this.onGround && !this.attackLock && !this.swimming
+    this.isDefendingState = this.mouseRight && this.onGround && !this.attackLock && !this.swimming
 
     // ── Roll / backflip ───────────────────────────────────────────────────
     if (this.keys.has('q') && this.onGround && !this.attackLock && !this.swimming) {
@@ -497,7 +508,7 @@ export class Player {
     let speed = WALK_SPEED
     if (this.sprinting)  speed = RUN_SPEED
     else if (moving)     speed = JOG_SPEED
-    if (this.isDefending) speed = 0
+    if (this.isDefendingState) speed = 0
     else if (this.attackLock && !this.rolling) speed = WALK_SPEED * 0.25
     if (this.swimming) speed = this.sprinting ? JOG_SPEED : WALK_SPEED
 
@@ -505,6 +516,10 @@ export class Player {
     if (this.rolling) {
       this.velocity.x = this.rollDir.x * RUN_SPEED
       this.velocity.z = this.rollDir.z * RUN_SPEED
+    } else if (this.dashing) {
+      // Dash attack lunges forward fast
+      this.velocity.x = this.dashDir.x * RUN_SPEED * 1.5
+      this.velocity.z = this.dashDir.z * RUN_SPEED * 1.5
     } else {
       this.velocity.x = moveDir.x * speed
       this.velocity.z = moveDir.z * speed
@@ -581,27 +596,13 @@ export class Player {
       if (!showTrail) this.slashTrail.start()
     }
 
-    // ── Debug: apply slider values to swordTipNode + shieldRoot ─────────────
-    if (this.debugMode) {
+    // ── Debug: apply slider values to shieldRoot ────────────────────────────
+    if (this.debugMode && this.shieldRoot) {
       const gv = (id: string) => parseFloat((document.getElementById(id) as HTMLInputElement)?.value ?? '0')
-      if (this.swordTipNode) {
-        this.swordTipNode.position.set(gv('dbgTipX'), gv('dbgTipY'), gv('dbgTipZ'))
-        this.swordTipNode.rotation.set(gv('dbgTipRX'), gv('dbgTipRY'), gv('dbgTipRZ'))
-        // Rebuild trail if width changed
-        const newW = gv('dbgTrailW')
-        if (Math.abs(newW - this.trailWidth) > 0.01 && this.slashTrail) {
-          this.trailWidth = newW
-          this.slashTrail.dispose()
-          this.slashTrail = new TrailMesh('slashTrail', this.swordTipNode, this.scene, newW, 30, true)
-          if (this.trailMat) this.slashTrail.material = this.trailMat
-        }
-      }
-      if (this.shieldRoot) {
-        this.shieldRoot.position.set(gv('dbgShX'), gv('dbgShY'), gv('dbgShZ'))
-        this.shieldRoot.rotation.set(gv('dbgShRX'), gv('dbgShRY'), gv('dbgShRZ'))
-        const sc = gv('dbgShSc')
-        if (sc > 0) this.shieldRoot.scaling.setAll(sc)
-      }
+      this.shieldRoot.position.set(gv('dbgShX'), gv('dbgShY'), gv('dbgShZ'))
+      this.shieldRoot.rotation.set(gv('dbgShRX'), gv('dbgShRY'), gv('dbgShRZ'))
+      const sc = gv('dbgShSc')
+      if (sc > 0) this.shieldRoot.scaling.setAll(sc)
     }
 
     // ── Camera follow ─────────────────────────────────────────────────────
@@ -615,6 +616,7 @@ export class Player {
       if (this.attackLockTimer <= 0) {
         this.attackLock = false
         this.rolling = false
+        this.dashing = false
         this.attackLockTimer = 0
       }
     }
@@ -644,6 +646,18 @@ export class Player {
     this.playAnim(anim)
   }
 
+  private startDashAttack() {
+    const duration = (this.animDurations.get('sword_dash') ?? 0.8) * 0.85
+    this.attackLock = true
+    this.attackLockTimer = duration
+    this.dashing = true
+    // Capture facing direction for the dash lunge
+    const dx = this.position.x - this.camera.position.x
+    const dz = this.position.z - this.camera.position.z
+    this.dashDir = new Vector3(dx, 0, dz).normalize()
+    this.playAnim('sword_dash')
+  }
+
   private updateAnimation(moving: boolean) {
     // Attack/roll lock takes priority
     if (this.attackLock) return
@@ -665,7 +679,7 @@ export class Player {
     }
 
     // Defend
-    if (this.isDefending) { this.playAnim('defend'); return }
+    if (this.isDefendingState) { this.playAnim('defend'); return }
 
     // Ground movement
     if (moving) {
@@ -789,6 +803,14 @@ export class Player {
     )
   }
 
+  isDashing(): boolean {
+    return this.attackLock && this.currentAnim === 'sword_dash'
+  }
+
+  isDefending(): boolean {
+    return this.isDefendingState
+  }
+
   getAttackAnim(): AnimState { return this.currentAnim }
 
   getSwordTip(): Vector3 {
@@ -797,7 +819,7 @@ export class Player {
   }
 
   takeDamage(amount: number) {
-    if (this.dead || this.iframeTimer > 0 || this.isDefending) return
+    if (this.dead || this.iframeTimer > 0 || this.isDefendingState) return
     this.health -= amount
     this.iframeTimer = 1.0
     if (this.health <= 0) {

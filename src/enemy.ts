@@ -8,6 +8,8 @@ import {
   AbstractMesh,
   GroundMesh,
   Color3,
+  MeshBuilder,
+  StandardMaterial,
 } from '@babylonjs/core'
 import type { EnemyNetState } from './types'
 
@@ -33,15 +35,25 @@ interface EnemyTypeDef {
   attackRange: number
   attackCooldown: number
   hitRadius: number
+  isRanged?: boolean                         // throws projectiles instead of melee
+  projectileSpeed?: number
 }
 
 const ENEMY_TYPES: EnemyTypeDef[] = [
   {
     folder: 'weak_orc',
     singleGlb: 'weak_orc.glb',
-    animNames: { idle: 'Idle', walk: 'Walk', bite: 'Attack', death: 'Death' },
-    scale: [0.8, 1.2], speed: [2, 3.5], health: [3, 5], damage: 1,
-    attackRange: 2.5, attackCooldown: 1.5, hitRadius: 1.0,
+    animNames: { idle: 'Zombie_Idle_Loop', walk: 'Zombie_Walk_Fwd_Loop', bite: 'Sword_Attack', death: 'Death01' },
+    scale: [1.6, 2.4], speed: [2, 3.5], health: [3, 5], damage: 1,
+    attackRange: 2.5, attackCooldown: 1.5, hitRadius: 1.5,
+  },
+  {
+    folder: 'goblin',
+    singleGlb: 'goblin.glb',
+    animNames: { idle: 'Zombie_Idle_Loop', walk: 'Zombie_Walk_Fwd_Loop', bite: 'Zombie_Scratch', death: 'Death01' },
+    scale: [0.8, 1.2], speed: [2.5, 4], health: [2, 3], damage: 1,
+    attackRange: 15, attackCooldown: 2.5, hitRadius: 0.8,
+    isRanged: true, projectileSpeed: 18,
   },
 ]
 
@@ -105,6 +117,13 @@ export class Enemy {
   // Damage flash
   private flashTimer = 0
   private originalColors = new Map<AbstractMesh, Color3>()
+
+  // Death disappear
+  private deathAnimDuration = 1.5
+  private deathAnimPlayed = false
+
+  // Ranged projectile
+  private projectiles: { mesh: AbstractMesh, pos: Vector3, vel: Vector3, life: number }[] = []
 
   constructor(scene: Scene, ground: GroundMesh, typeDef: EnemyTypeDef, spawnPos: Vector3, rng: () => number = Math.random) {
     this.scene = scene
@@ -256,11 +275,25 @@ export class Enemy {
   update(dt: number, playerPos: Vector3): { wantAttack: boolean } {
     if (!this.loaded) return { wantAttack: false }
 
+    // Update projectiles always (even while dead)
+    this.updateProjectiles(dt)
+
     if (this.dead) {
       this.deathTimer -= dt
       if (this.flashTimer > 0) {
         this.flashTimer -= dt
         if (this.flashTimer <= 0) this.restoreColors()
+      }
+      // Hide meshes after death animation plays once
+      if (!this.deathAnimPlayed) {
+        this.deathAnimDuration -= dt
+        if (this.deathAnimDuration <= 0) {
+          this.deathAnimPlayed = true
+          for (const entry of Object.values(this.entries)) {
+            if (!entry) continue
+            entry.meshes.forEach(m => { m.isVisible = false })
+          }
+        }
       }
       if (this.deathTimer <= 0) {
         this.respawn()
@@ -310,8 +343,13 @@ export class Enemy {
       } else {
         this.playAnim('bite')
         if (this.attackCooldown <= 0) {
-          wantAttack = true
           this.attackCooldown = this.typeDef.attackCooldown
+          if (this.typeDef.isRanged) {
+            const dir = toPlayer.normalize()
+            this.spawnRock(dir)
+          } else {
+            wantAttack = true
+          }
         }
       }
     }
@@ -362,6 +400,8 @@ export class Enemy {
       this.dead = true
       this.state = 'dead'
       this.deathTimer = RESPAWN_TIME
+      this.deathAnimDuration = 1.5
+      this.deathAnimPlayed = false
       this.playAnim('death')
     }
   }
@@ -405,8 +445,85 @@ export class Enemy {
     this.position.y = this.getGroundY(this.position.x, this.position.z)
     this.state = 'idle'
     this.wanderTimer = 0
+    this.deathAnimPlayed = false
+    this.deathAnimDuration = 1.5
     this.playAnim('idle')
   }
+
+  // ── Rock projectile system ──────────────────────────────────────────────
+  private spawnRock(dir: Vector3) {
+    const rockMesh = MeshBuilder.CreateSphere('rock', { diameter: 0.3 }, this.scene)
+    const mat = new StandardMaterial('rockMat', this.scene)
+    mat.diffuseColor = new Color3(0.45, 0.35, 0.25)
+    rockMesh.material = mat
+
+    const spawnPos = this.position.clone()
+    spawnPos.y += 1.5 * this.scale
+    rockMesh.position.copyFrom(spawnPos)
+
+    const speed = this.typeDef.projectileSpeed ?? 18
+    const vel = dir.scale(speed)
+    vel.y = 3 // slight arc
+
+    this.projectiles.push({ mesh: rockMesh, pos: spawnPos.clone(), vel: vel.clone(), life: 5 })
+  }
+
+  private updateProjectiles(dt: number) {
+    for (let i = this.projectiles.length - 1; i >= 0; i--) {
+      const p = this.projectiles[i]
+      p.vel.y -= 15 * dt // gravity
+      p.pos.addInPlace(p.vel.scale(dt))
+      p.mesh.position.copyFrom(p.pos)
+      p.life -= dt
+
+      // Hit ground
+      const gy = this.getGroundY(p.pos.x, p.pos.z)
+      if (p.pos.y <= gy || p.life <= 0) {
+        p.mesh.dispose()
+        this.projectiles.splice(i, 1)
+      }
+    }
+  }
+
+  /** Get active projectiles for hit detection in main.ts */
+  getProjectiles(): { pos: Vector3, vel: Vector3, mesh: AbstractMesh }[] {
+    return this.projectiles.map(p => ({ pos: p.pos.clone(), vel: p.vel, mesh: p.mesh }))
+  }
+
+  /** Deflect a projectile: reverse its velocity back toward this enemy */
+  deflectProjectile(index: number) {
+    const p = this.projectiles[index]
+    if (!p) return
+    // Reverse direction and boost
+    const toEnemy = this.position.subtract(p.pos)
+    toEnemy.y = 0
+    if (toEnemy.length() > 0.01) toEnemy.normalize()
+    const speed = (this.typeDef.projectileSpeed ?? 18) * 1.5
+    p.vel = toEnemy.scale(speed)
+    p.vel.y = 2
+  }
+
+  /** Check if any projectile hits this enemy (for deflected rocks) */
+  checkProjectileHitSelf(): boolean {
+    for (let i = this.projectiles.length - 1; i >= 0; i--) {
+      const p = this.projectiles[i]
+      // Only check rocks heading back toward the enemy (deflected)
+      const toEnemy = this.position.subtract(p.pos)
+      toEnemy.y = 0
+      if (toEnemy.length() < this.hitRadius * 1.5) {
+        // Check if rock is moving toward enemy (dot product > 0)
+        const dot = Vector3.Dot(p.vel, toEnemy)
+        if (dot > 0) {
+          p.mesh.dispose()
+          this.projectiles.splice(i, 1)
+          return true
+        }
+      }
+    }
+    return false
+  }
+
+  isRanged(): boolean { return !!this.typeDef.isRanged }
 
   isDead(): boolean { return this.dead }
   getPosition(): Vector3 { return this.position.clone() }
@@ -435,6 +552,8 @@ export class Enemy {
       this.dead = true
       this.state = 'dead'
       this.deathTimer = RESPAWN_TIME
+      this.deathAnimDuration = 1.5
+      this.deathAnimPlayed = false
     }
     if (s.hp > 0 && this.dead) {
       this.dead = false
@@ -459,6 +578,8 @@ export class Enemy {
       entry.group?.stop()
       entry.pivot.dispose()
     }
+    for (const p of this.projectiles) p.mesh.dispose()
+    this.projectiles.length = 0
   }
 }
 

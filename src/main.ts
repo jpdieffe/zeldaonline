@@ -251,12 +251,12 @@ function startGame(seed?: string) {
         if (dist < 3.5) {
           enemy.takeDamage(1)
           hitEnemyAnim.set(enemy, atkAnim)
-          // 3rd hit (sword_attack_c) knocks the enemy back
+          // 3rd hit (sword_attack_c) knocks the enemy back hard
           if (atkAnim === 'sword_attack_c') {
             const dir = enemy.getPosition().subtract(ppos)
             dir.y = 0
             if (dir.length() > 0.01) dir.normalize()
-            enemy.knockBack(dir, 8)
+            enemy.knockBack(dir, 80)
           }
         }
       }
@@ -278,6 +278,52 @@ function startGame(seed?: string) {
             hitByThrow.add(enemy)
           }
         }
+      }
+    }
+
+    // Dash attack hit detection (sword_dash hurts enemies on contact)
+    if (player.isDashing()) {
+      const ppos = player.getPosition()
+      for (const enemy of enemyMgr.getEnemies()) {
+        if (enemy.isDead()) continue
+        if (hitEnemyAnim.get(enemy) === 'sword_dash') continue
+        const edx = enemy.getPosition().x - ppos.x
+        const edz = enemy.getPosition().z - ppos.z
+        const dist = Math.sqrt(edx * edx + edz * edz)
+        if (dist < 3.5) {
+          enemy.takeDamage(2)
+          hitEnemyAnim.set(enemy, 'sword_dash')
+          const dir = enemy.getPosition().subtract(ppos)
+          dir.y = 0
+          if (dir.length() > 0.01) dir.normalize()
+          enemy.knockBack(dir, 40)
+        }
+      }
+    }
+
+    // Rock projectile vs player (shield deflection)
+    const pp = player.getPosition()
+    for (const enemy of enemyMgr.getEnemies()) {
+      if (!enemy.isRanged()) continue
+      const rocks = enemy.getProjectiles()
+      for (let ri = 0; ri < rocks.length; ri++) {
+        const rp = rocks[ri].pos
+        const dx2 = rp.x - pp.x
+        const dz2 = rp.z - pp.z
+        const dy2 = rp.y - (pp.y + 1.0)
+        const dist = Math.sqrt(dx2 * dx2 + dy2 * dy2 + dz2 * dz2)
+        if (dist < 1.5) {
+          if (player.isDefending()) {
+            // Deflect rock back at the enemy
+            enemy.deflectProjectile(ri)
+          } else {
+            player.takeDamage(1)
+          }
+        }
+      }
+      // Check if deflected rock hit the enemy itself
+      if (enemy.checkProjectileHitSelf()) {
+        enemy.takeDamage(2)
       }
     }
 

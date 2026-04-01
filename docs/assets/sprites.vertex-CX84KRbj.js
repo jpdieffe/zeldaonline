@@ -1,1 +1,0 @@
-import{u as e}from"./index-DGSpfzyF.js";export{e as spritesVertexShaderWGSL};

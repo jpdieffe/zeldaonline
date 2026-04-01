@@ -249,12 +249,14 @@ export class Player {
     const moving  = moveDir.length() > 0.01
     if (moving) moveDir.normalize()
 
-    // Player always faces camera direction; when moving, face movement direction instead
+    // Player always faces away from camera; when moving, face movement direction
     if (!this.attackLock) {
       if (moving) {
         this.facingY = Math.atan2(moveDir.x, moveDir.z)
       } else {
-        this.facingY = Math.atan2(forward.x, forward.z)
+        // Face away from camera: camera orbits at alpha,
+        // so "away from camera" = alpha + PI
+        this.facingY = this.camera.alpha + Math.PI
       }
     }
 

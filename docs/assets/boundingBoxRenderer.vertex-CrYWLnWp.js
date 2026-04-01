@@ -1,0 +1,1 @@
+import{R as e}from"./index-DtFKK67F.js";export{e as boundingBoxRendererVertexShader};

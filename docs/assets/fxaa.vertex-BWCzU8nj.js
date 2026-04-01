@@ -1,0 +1,1 @@
+import{Mt as e}from"./index-DtFKK67F.js";export{e as fxaaVertexShader};

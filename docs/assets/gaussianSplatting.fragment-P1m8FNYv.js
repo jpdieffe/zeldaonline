@@ -1,1 +1,0 @@
-import{xo as e}from"./index-CYPvMPQl.js";export{e as gaussianSplattingPixelShaderWGSL};

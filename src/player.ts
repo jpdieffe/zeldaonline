@@ -235,13 +235,18 @@ export class Player {
       .find(n => n.name === 'hand_r')
     if (!handBone) { console.warn('hand_r bone not found'); return }
 
-    const result = await SceneLoader.ImportMeshAsync('', './assets/weapons/', 'sword.glb', this.scene)
-    this.swordRoot = result.meshes[0] as unknown as TransformNode
+    // Intermediate pivot so we can freely rotate/position
+    this.swordRoot = new TransformNode('swordPivot', this.scene)
     this.swordRoot.parent = handBone
-    // Position/rotation offset to sit naturally in hand
     this.swordRoot.position.set(0, 0.1, 0)
     this.swordRoot.rotation.set(0, 0, 0)
-    this.swordRoot.scaling.setAll(1)
+
+    const result = await SceneLoader.ImportMeshAsync('', './assets/weapons/', 'sword.glb', this.scene)
+    const glbRoot = result.meshes[0] as unknown as TransformNode
+    glbRoot.parent = this.swordRoot
+    glbRoot.position.set(0, 0, 0)
+    glbRoot.rotation.set(0, 0, 0)
+    glbRoot.scaling.setAll(1)
 
     this.swordMeshes = result.meshes.filter(m => m !== result.meshes[0])
     // Start hidden
@@ -254,9 +259,19 @@ export class Player {
   private setupSwordAdjustUI() {
     const panel = document.createElement('div')
     panel.id = 'sword-adjust'
-    panel.style.cssText = 'position:fixed;top:10px;right:10px;background:rgba(0,0,0,0.8);color:#0f0;padding:10px;font:12px monospace;z-index:9999;border-radius:6px;'
+    panel.style.cssText = 'position:fixed;top:10px;right:10px;background:rgba(0,0,0,0.85);color:#fff;padding:12px;font:13px monospace;z-index:9999;border-radius:8px;min-width:260px;'
+    const title = document.createElement('div')
+    title.textContent = 'SWORD ADJUST'
+    title.style.cssText = 'text-align:center;font-weight:bold;margin-bottom:8px;color:#0ff;font-size:14px;'
+    panel.appendChild(title)
+
     const step = 0.05
     const rstep = 0.1
+    const colors: Record<string, string> = {
+      posX: '#f44', posY: '#4f4', posZ: '#48f',
+      rotX: '#fa4', rotY: '#af4', rotZ: '#f4f',
+      scale: '#ff4',
+    }
     const labels = [
       { axis: 'posX', label: 'Pos X', get: () => this.swordRoot!.position.x, set: (v: number) => this.swordRoot!.position.x = v },
       { axis: 'posY', label: 'Pos Y', get: () => this.swordRoot!.position.y, set: (v: number) => this.swordRoot!.position.y = v },
@@ -268,24 +283,24 @@ export class Player {
     ]
     for (const item of labels) {
       const row = document.createElement('div')
-      row.style.cssText = 'display:flex;align-items:center;gap:4px;margin:2px 0;'
+      row.style.cssText = 'display:flex;align-items:center;gap:6px;margin:4px 0;'
       const lbl = document.createElement('span')
-      lbl.style.width = '40px'
+      lbl.style.cssText = `width:50px;color:${colors[item.axis]};font-weight:bold;`
       lbl.textContent = item.label
       const val = document.createElement('span')
-      val.style.width = '60px'
-      val.style.textAlign = 'right'
+      val.style.cssText = 'width:55px;text-align:right;color:#fff;'
       val.textContent = item.get().toFixed(2)
+      const btnStyle = `width:36px;height:28px;cursor:pointer;font-size:16px;font-weight:bold;border:none;border-radius:4px;color:#000;background:${colors[item.axis]};`
       const btnM = document.createElement('button')
-      btnM.textContent = '-'
-      btnM.style.cssText = 'width:24px;height:24px;cursor:pointer;'
+      btnM.textContent = '\u2212'
+      btnM.style.cssText = btnStyle
       const btnP = document.createElement('button')
       btnP.textContent = '+'
-      btnP.style.cssText = 'width:24px;height:24px;cursor:pointer;'
+      btnP.style.cssText = btnStyle
       const s = item.axis.startsWith('rot') ? rstep : (item.axis === 'scale' ? 0.1 : step)
-      btnM.onclick = () => { item.set(item.get() - s); val.textContent = item.get().toFixed(2); this.logSwordValues() }
-      btnP.onclick = () => { item.set(item.get() + s); val.textContent = item.get().toFixed(2); this.logSwordValues() }
-      row.append(lbl, btnM, val, btnP)
+      btnM.onclick = (e) => { e.stopPropagation(); item.set(item.get() - s); val.textContent = item.get().toFixed(2); this.logSwordValues() }
+      btnP.onclick = (e) => { e.stopPropagation(); item.set(item.get() + s); val.textContent = item.get().toFixed(2); this.logSwordValues() }
+      row.append(btnM, lbl, val, btnP)
       panel.appendChild(row)
     }
     document.body.appendChild(panel)

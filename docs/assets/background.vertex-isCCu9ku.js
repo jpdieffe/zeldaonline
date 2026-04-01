@@ -1,1 +1,0 @@
-import{Xn as e}from"./index-CYPvMPQl.js";export{e as backgroundVertexShaderWGSL};

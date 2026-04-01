@@ -1,1 +1,0 @@
-import{vn as e}from"./index-CYPvMPQl.js";export{e as particlesPixelShaderWGSL};

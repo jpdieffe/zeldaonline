@@ -1,1 +1,0 @@
-import{f as e}from"./index-CYPvMPQl.js";export{e as spritesVertexShader};

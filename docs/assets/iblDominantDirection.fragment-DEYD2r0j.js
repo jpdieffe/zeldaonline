@@ -1,1 +1,0 @@
-import{_ as e}from"./index-CYPvMPQl.js";export{e as iblDominantDirectionPixelShaderWGSL};

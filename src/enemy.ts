@@ -45,7 +45,7 @@ const ENEMY_TYPES: EnemyTypeDef[] = [
     singleGlb: 'weak_orc.glb',
     animNames: { idle: 'Zombie_Idle_Loop', walk: 'Zombie_Walk_Fwd_Loop', bite: 'Sword_Attack', death: 'Death01' },
     scale: [1.6, 2.4], speed: [2, 3.5], health: [3, 5], damage: 1,
-    attackRange: 2.5, attackCooldown: 1.5, hitRadius: 1.5,
+    attackRange: 2.5, attackCooldown: 1.5, hitRadius: 1.0,
   },
   {
     folder: 'goblin',
@@ -385,7 +385,11 @@ export class Enemy {
       this.lungeTimer -= dt
       this.lungeVel.y -= 20 * dt  // gravity
       this.position.addInPlace(this.lungeVel.scale(dt))
-      if (!this.lungeHit && dist < this.hitRadius + 1.0) {
+      // Recompute flat distance after movement so hit check uses current position
+      const lungeDx = nearestPos.x - this.position.x
+      const lungeDz = nearestPos.z - this.position.z
+      const lungeDist = Math.sqrt(lungeDx * lungeDx + lungeDz * lungeDz)
+      if (!this.lungeHit && lungeDist < this.hitRadius) {
         this.lungeHit = true
         wantAttack = true
       }

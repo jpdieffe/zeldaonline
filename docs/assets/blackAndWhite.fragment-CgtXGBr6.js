@@ -1,1 +1,0 @@
-import{Ot as e}from"./index-XnJM-FCp.js";export{e as blackAndWhitePixelShaderWGSL};

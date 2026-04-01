@@ -8,6 +8,8 @@ import {
   Color3,
   MeshBuilder,
   StandardMaterial,
+  GroundMesh,
+  VertexBuffer,
 } from '@babylonjs/core'
 import { Player } from './player'
 import { Network } from './network'
@@ -15,6 +17,30 @@ import { RemotePlayer } from './remote'
 
 const canvas = document.getElementById('renderCanvas') as HTMLCanvasElement
 const network = new Network()
+
+// Simple value noise for terrain hills
+function hash(x: number, z: number): number {
+  let n = Math.sin(x * 127.1 + z * 311.7) * 43758.5453
+  return n - Math.floor(n)
+}
+function smoothNoise(x: number, z: number): number {
+  const ix = Math.floor(x), iz = Math.floor(z)
+  const fx = x - ix, fz = z - iz
+  const sx = fx * fx * (3 - 2 * fx), sz = fz * fz * (3 - 2 * fz)
+  const a = hash(ix, iz), b = hash(ix + 1, iz)
+  const c = hash(ix, iz + 1), d = hash(ix + 1, iz + 1)
+  return a + (b - a) * sx + (c - a) * sz + (a - b - c + d) * sx * sz
+}
+function hillNoise(x: number, z: number): number {
+  let h = 0
+  h += smoothNoise(x * 0.02, z * 0.02) * 6    // broad hills
+  h += smoothNoise(x * 0.06, z * 0.06) * 2     // medium bumps
+  h += smoothNoise(x * 0.15, z * 0.15) * 0.5   // small detail
+  return h - 3   // shift down so some areas are below water
+}
+
+/** Query terrain height at any (x,z) — exported for player use */
+export { hillNoise }
 
 // ── Status overlay ───────────────────────────────────────────────────────────
 function showStatus(msg: string, isError = false) {
@@ -128,12 +154,30 @@ function startGame() {
   const sun = new DirectionalLight('sun', new Vector3(-1, -2, -1), scene)
   sun.intensity = 0.9
 
-  // Ground
-  const ground = MeshBuilder.CreateGround('ground', { width: 200, height: 200 }, scene)
+  // Ground with hills
+  const GROUND_SIZE = 200
+  const SUBDIVISIONS = 128
+  const ground = MeshBuilder.CreateGround('ground', {
+    width: GROUND_SIZE, height: GROUND_SIZE,
+    subdivisions: SUBDIVISIONS, updatable: true,
+  }, scene) as GroundMesh
   const groundMat = new StandardMaterial('groundMat', scene)
   groundMat.diffuseColor = new Color3(0.35, 0.6, 0.25)
   groundMat.specularColor = new Color3(0.05, 0.05, 0.05)
   ground.material = groundMat
+
+  // Apply noise to vertex heights for rolling hills
+  const positions = ground.getVerticesData(VertexBuffer.PositionKind)!
+  for (let i = 0; i < positions.length; i += 3) {
+    const x = positions[i]
+    const z = positions[i + 2]
+    positions[i + 1] = hillNoise(x, z)
+  }
+  ground.updateVerticesData(VertexBuffer.PositionKind, positions)
+  ground.createNormals(false)
+  // Enable height queries
+  ground._heightQuads = null as any  // force recalc
+  ground.updateCoordinateHeights()
 
   // Water plane (slightly below ground)
   const water = MeshBuilder.CreateGround('water', { width: 500, height: 500 }, scene)
@@ -145,7 +189,7 @@ function startGame() {
   water.material = waterMat
 
   // Player
-  const player = new Player(scene)
+  const player = new Player(scene, ground)
 
   // Network send
   const SEND_INTERVAL = 1 / 20

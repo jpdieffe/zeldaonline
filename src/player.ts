@@ -6,6 +6,7 @@ import {
   SceneLoader,
   TransformNode,
   AnimationGroup,
+  GroundMesh,
 } from '@babylonjs/core'
 import type { AnimState, PlayerState } from './types'
 
@@ -17,7 +18,6 @@ const JOG_SPEED     = 5.5
 const RUN_SPEED     = 9.0
 const PLAYER_HEIGHT = 1.8
 const TERMINAL_VEL  = -40
-const GROUND_Y      = 0       // flat ground plane
 const WATER_Y       = -0.4    // swim threshold
 const MODEL_SCALE   = 1.0
 
@@ -66,6 +66,7 @@ const ONE_SHOT: Set<AnimState> = new Set([
 
 export class Player {
   private scene: Scene
+  private ground: GroundMesh
 
   position = SPAWN.clone()
   private velocity = Vector3.Zero()
@@ -104,11 +105,19 @@ export class Player {
   // Sprint
   private sprinting = false
 
-  constructor(scene: Scene) {
+  constructor(scene: Scene, ground: GroundMesh) {
     this.scene = scene
+    this.ground = ground
+    // Start above terrain
+    this.position.y = this.getGroundY(0, 0) + 2
     this.setupCamera()
     this.setupInput()
     this.loadModel()
+  }
+
+  private getGroundY(x: number, z: number): number {
+    const y = this.ground.getHeightAtCoordinates(x, z)
+    return (y != null && isFinite(y)) ? y : 0
   }
 
   // ── Camera ────────────────────────────────────────────────────────────────
@@ -284,14 +293,27 @@ export class Player {
     this.position.addInPlace(this.velocity.scale(dt))
 
     // Land on ground
-    if (this.position.y <= GROUND_Y && this.velocity.y <= 0) {
-      this.position.y = GROUND_Y
+    const groundY = this.getGroundY(this.position.x, this.position.z)
+    if (this.position.y <= groundY && this.velocity.y <= 0) {
+      this.position.y = groundY
       this.velocity.y = 0
       if (!this.onGround) {
         this.onGround = true
         this.jumpPhase = 'land'
         this.jumpPhaseTimer = 0.2
         this.playAnim('jump_land')
+      }
+    }
+
+    // Grounded surface following
+    if (this.onGround) {
+      const surfY = this.getGroundY(this.position.x, this.position.z)
+      if (this.position.y > surfY + 0.5) {
+        // ground dropped away, start falling
+        this.onGround = false
+        this.velocity.y = 0
+      } else {
+        this.position.y = surfY
       }
     }
 

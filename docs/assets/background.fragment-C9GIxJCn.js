@@ -1,0 +1,1 @@
+import{Yn as e}from"./index-CE-CdKUn.js";export{e as backgroundPixelShaderWGSL};

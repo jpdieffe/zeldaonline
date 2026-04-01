@@ -347,11 +347,14 @@ function startGame(seed?: string) {
         ))
       }
       enemyMgr.update(dt, positions, (enemy) => {
-        const ep = enemy.getPosition()
         const pp = player.getPosition()
-        // Shield blocks if attack comes from the front
-        if (player.canBlockFrom(ep)) return
+        // Use lunge direction for shield check (orc stops on contact now, but direction is reliable)
+        const lungeDir = enemyMgr.getLungeDir(enemy)
+        // The attack comes FROM the lunge direction — place virtual origin in front of player
+        const attackOrigin = pp.add(lungeDir.scale(-5))
+        if (player.canBlockFrom(attackOrigin)) return
         // Knockback player away from enemy
+        const ep = enemy.getPosition()
         const knockDir = pp.subtract(ep)
         knockDir.y = 0
         if (knockDir.length() > 0.01) knockDir.normalize()

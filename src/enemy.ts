@@ -129,6 +129,7 @@ export class Enemy {
   // Lunge attack (melee)
   private lunging = false
   private lungeVel = Vector3.Zero()
+  _lungeDir = Vector3.Zero()   // flat direction of lunge (for shield check)
   private lungeTimer = 0
   private lungeHit = false
 
@@ -370,6 +371,7 @@ export class Enemy {
             this.lungeHit = false
             this.lungeTimer = 0.4
             const dir = toPlayer.length() > 0.01 ? toPlayer.normalize() : Vector3.Forward()
+            this._lungeDir = dir.clone()  // save flat direction for shield check
             this.lungeVel = dir.scale(this.speed * 4)
             this.lungeVel.y = 8  // jump arc
             this.playAnim('bite')
@@ -392,6 +394,9 @@ export class Enemy {
       if (!this.lungeHit && lungeDist < this.hitRadius) {
         this.lungeHit = true
         wantAttack = true
+        // Stop lunge on contact so orc doesn't pass through
+        this.lunging = false
+        this.lungeVel.set(0, 0, 0)
       }
       if (this.lungeTimer <= 0) {
         this.lunging = false
@@ -743,6 +748,9 @@ export class EnemyManager {
       }
     }
   }
+
+  /** Get the flat lunge direction of the last lunge (for shield directional check) */
+  getLungeDir(enemy: Enemy): Vector3 { return enemy._lungeDir.length() > 0.01 ? enemy._lungeDir : Vector3.Forward() }
 
   /** Check if player's sword hits any enemy */
   checkSwordHits(swordPos: Vector3, damage: number) {

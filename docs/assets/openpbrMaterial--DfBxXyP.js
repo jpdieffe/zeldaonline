@@ -1,1 +1,0 @@
-import{Un as e}from"./index-Bcmt-Ntm.js";export{e as OpenPBRMaterial};

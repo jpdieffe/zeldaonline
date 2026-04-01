@@ -1,1 +1,0 @@
-import{Gn as e}from"./index-Bcmt-Ntm.js";export{e as colorVertexShader};

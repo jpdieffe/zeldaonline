@@ -95,6 +95,10 @@ export class Player {
   private attackLockTimer = 0
   private isDefending = false
 
+  // Roll
+  private rolling = false
+  private rollDir = Vector3.Zero()
+
   // Jump state machine
   private jumpPhase: 'none' | 'start' | 'loop' | 'land' = 'none'
   private jumpPhaseTimer = 0
@@ -209,13 +213,13 @@ export class Player {
     this.playAnim('idle')
   }
 
-  private playAnim(a: AnimState) {
+  private playAnim(a: AnimState, speedRatio = 1.0) {
     if (a === this.currentAnim || !this.animsLoaded) return
     const prev = this.animGroups.get(this.currentAnim)
     if (prev) prev.stop()
     const next = this.animGroups.get(a)
     if (next) {
-      next.start(next.loopAnimation, 1.0, next.from, next.to, false)
+      next.start(next.loopAnimation, speedRatio, next.from, next.to, false)
     }
     this.currentAnim = a
   }
@@ -236,8 +240,14 @@ export class Player {
     if (this.keys.has('q') && this.onGround && !this.attackLock && !this.swimming) {
       this.keys.delete('q')
       this.attackLock = true
-      this.attackLockTimer = (this.animDurations.get('roll') ?? 0.8) * 0.7  // cut tail
-      this.playAnim('roll')
+      this.rolling = true
+      // Capture facing direction at roll start
+      const rdx = this.position.x - this.camera.position.x
+      const rdz = this.position.z - this.camera.position.z
+      this.rollDir = new Vector3(rdx, 0, rdz).normalize()
+      // 2x anim speed → halve the lock timer
+      this.attackLockTimer = ((this.animDurations.get('roll') ?? 0.8) * 0.7) / 2
+      this.playAnim('roll', 2.0)
     }
 
     // ── Horizontal movement ───────────────────────────────────────────────
@@ -269,8 +279,14 @@ export class Player {
     if (this.attackLock || this.isDefending) speed = 0
     if (this.swimming) speed = this.sprinting ? JOG_SPEED : WALK_SPEED
 
-    this.velocity.x = moveDir.x * speed
-    this.velocity.z = moveDir.z * speed
+    // Rolling overrides: lunge forward in the facing direction
+    if (this.rolling) {
+      this.velocity.x = this.rollDir.x * RUN_SPEED
+      this.velocity.z = this.rollDir.z * RUN_SPEED
+    } else {
+      this.velocity.x = moveDir.x * speed
+      this.velocity.z = moveDir.z * speed
+    }
 
     // ── Jump ──────────────────────────────────────────────────────────────
     if (this.keys.has(' ') && this.onGround && !this.attackLock && !this.swimming) {
@@ -336,6 +352,7 @@ export class Player {
       this.attackLockTimer -= dt
       if (this.attackLockTimer <= 0) {
         this.attackLock = false
+        this.rolling = false
         this.attackLockTimer = 0
       }
     }

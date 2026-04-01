@@ -1,1 +1,0 @@
-import{I as e}from"./index-Bcmt-Ntm.js";export{e as boundingBoxRendererVertexShaderWGSL};

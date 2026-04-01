@@ -51,7 +51,7 @@ const ENEMY_TYPES: EnemyTypeDef[] = [
     folder: 'goblin',
     singleGlb: 'goblin.glb',
     animNames: { idle: 'Zombie_Idle_Loop', walk: 'Zombie_Walk_Fwd_Loop', bite: 'Zombie_Scratch', death: 'Death01' },
-    scale: [0.8, 1.2], speed: [2.5, 4], health: [2, 3], damage: 1,
+    scale: [1.6, 2.4], speed: [2.5, 4], health: [2, 3], damage: 1,
     attackRange: 15, attackCooldown: 2.5, hitRadius: 0.8,
     isRanged: true, projectileSpeed: 18,
   },
@@ -124,6 +124,7 @@ export class Enemy {
 
   // Ranged projectile
   private projectiles: { mesh: AbstractMesh, pos: Vector3, vel: Vector3, life: number }[] = []
+  private netRockMeshes: AbstractMesh[] = []
 
   constructor(scene: Scene, ground: GroundMesh, typeDef: EnemyTypeDef, spawnPos: Vector3, rng: () => number = Math.random) {
     this.scene = scene
@@ -272,7 +273,7 @@ export class Enemy {
     return (y != null && isFinite(y)) ? y : 0
   }
 
-  update(dt: number, playerPos: Vector3): { wantAttack: boolean } {
+  update(dt: number, playerPositions: Vector3[]): { wantAttack: boolean } {
     if (!this.loaded) return { wantAttack: false }
 
     // Update projectiles always (even while dead)
@@ -303,7 +304,17 @@ export class Enemy {
 
     this.attackCooldown -= dt
 
-    const toPlayer = playerPos.subtract(this.position)
+    // Find nearest player
+    let nearestPos = playerPositions[0]
+    let nearestDistSq = Infinity
+    for (const pp of playerPositions) {
+      const dx = pp.x - this.position.x
+      const dz = pp.z - this.position.z
+      const dsq = dx * dx + dz * dz
+      if (dsq < nearestDistSq) { nearestDistSq = dsq; nearestPos = pp }
+    }
+
+    const toPlayer = nearestPos.subtract(this.position)
     toPlayer.y = 0
     const dist = toPlayer.length()
     let wantAttack = false
@@ -534,6 +545,10 @@ export class Enemy {
     return {
       x: this.position.x, z: this.position.z,
       ry: this.facingY, anim: this.currentAnim, hp: this.health,
+      rocks: this.projectiles.map(p => ({
+        x: p.pos.x, y: p.pos.y, z: p.pos.z,
+        vx: p.vel.x, vy: p.vel.y, vz: p.vel.z,
+      })),
     }
   }
 
@@ -568,6 +583,40 @@ export class Enemy {
       entry.pivot.position.copyFrom(this.position)
       entry.pivot.rotation.y = this.facingY
     }
+
+    // Sync projectiles from host
+    const netRocks = s.rocks ?? []
+    while (this.netRockMeshes.length < netRocks.length) {
+      const mesh = MeshBuilder.CreateSphere('netRock', { diameter: 0.3 }, this.scene)
+      const mat = new StandardMaterial('netRockMat', this.scene)
+      mat.diffuseColor = new Color3(0.45, 0.35, 0.25)
+      mesh.material = mat
+      this.netRockMeshes.push(mesh)
+    }
+    while (this.netRockMeshes.length > netRocks.length) {
+      this.netRockMeshes.pop()!.dispose()
+    }
+    this.projectiles.length = 0
+    for (let i = 0; i < netRocks.length; i++) {
+      const r = netRocks[i]
+      this.netRockMeshes[i].position.set(r.x, r.y, r.z)
+      this.projectiles.push({
+        mesh: this.netRockMeshes[i],
+        pos: new Vector3(r.x, r.y, r.z),
+        vel: new Vector3(r.vx, r.vy, r.vz),
+        life: 5,
+      })
+    }
+  }
+
+  removeProjectile(index: number) {
+    if (index < 0 || index >= this.projectiles.length) return
+    this.projectiles[index].mesh.dispose()
+    this.projectiles.splice(index, 1)
+    // Also remove from netRockMeshes if present
+    if (index < this.netRockMeshes.length) {
+      this.netRockMeshes.splice(index, 1)
+    }
   }
 
   dispose() {
@@ -580,6 +629,8 @@ export class Enemy {
     }
     for (const p of this.projectiles) p.mesh.dispose()
     this.projectiles.length = 0
+    for (const m of this.netRockMeshes) m.dispose()
+    this.netRockMeshes.length = 0
   }
 }
 
@@ -619,9 +670,9 @@ export class EnemyManager {
     }
   }
 
-  update(dt: number, playerPos: Vector3, onEnemyAttack: (enemy: Enemy) => void) {
+  update(dt: number, playerPositions: Vector3[], onEnemyAttack: (enemy: Enemy) => void) {
     for (const enemy of this.enemies) {
-      const result = enemy.update(dt, playerPos)
+      const result = enemy.update(dt, playerPositions)
       if (result.wantAttack) {
         onEnemyAttack(enemy)
       }

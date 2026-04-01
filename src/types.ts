@@ -25,6 +25,7 @@ export interface PlayerState {
 export interface EnemyNetState {
   x: number; z: number; ry: number
   anim: string; hp: number
+  rocks?: { x: number, y: number, z: number, vx: number, vy: number, vz: number }[]
 }
 
 export type NetMessage =

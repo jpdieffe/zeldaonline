@@ -115,6 +115,7 @@ export class Network {
         this.lastRemoteState = msg.state
       } else if (msg.type === 'enemies') {
         this.lastEnemyStates = msg.enemies
+        this.enemyStatesVersion++
       }
     })
     conn.on('close', () => { this.conn = null })
@@ -136,6 +137,7 @@ export class Network {
   }
 
   lastEnemyStates: EnemyNetState[] | null = null
+  enemyStatesVersion = 0
 
   isConnected(): boolean {
     return this.conn?.open ?? false

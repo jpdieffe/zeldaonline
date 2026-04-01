@@ -226,6 +226,7 @@ function startGame(seed?: string) {
   const ENEMY_SEND_INTERVAL = 1 / 10
   let sendTimer = 0
   let enemySendTimer = 0
+  let lastEnemyVersion = 0
 
   // Render loop
   engine.runRenderLoop(() => {
@@ -302,11 +303,12 @@ function startGame(seed?: string) {
     }
 
     // Rock projectile vs player (shield deflection)
+    const isJoiner = network.isConnected() && !network.isHost
     const pp = player.getPosition()
     for (const enemy of enemyMgr.getEnemies()) {
       if (!enemy.isRanged()) continue
       const rocks = enemy.getProjectiles()
-      for (let ri = 0; ri < rocks.length; ri++) {
+      for (let ri = rocks.length - 1; ri >= 0; ri--) {
         const rp = rocks[ri].pos
         const dx2 = rp.x - pp.x
         const dz2 = rp.z - pp.z
@@ -314,24 +316,31 @@ function startGame(seed?: string) {
         const dist = Math.sqrt(dx2 * dx2 + dy2 * dy2 + dz2 * dz2)
         if (dist < 1.5) {
           if (player.isDefending()) {
-            // Deflect rock back at the enemy
             enemy.deflectProjectile(ri)
           } else {
             player.takeDamage(1)
+            enemy.removeProjectile(ri)
           }
         }
       }
-      // Check if deflected rock hit the enemy itself
-      if (enemy.checkProjectileHitSelf()) {
+      // Check if deflected rock hit the enemy itself (host only)
+      if (!isJoiner && enemy.checkProjectileHitSelf()) {
         enemy.takeDamage(2)
       }
     }
 
     // Enemy AI + attacks on player (horizontal distance)
     // Host runs AI; joiner applies received states
-    const isJoiner = network.isConnected() && !network.isHost
     if (!isJoiner) {
-      enemyMgr.update(dt, player.getPosition(), (enemy) => {
+      const positions = [player.getPosition()]
+      if (network.isConnected() && network.lastRemoteState) {
+        positions.push(new Vector3(
+          network.lastRemoteState.x,
+          network.lastRemoteState.y,
+          network.lastRemoteState.z,
+        ))
+      }
+      enemyMgr.update(dt, positions, (enemy) => {
         const ep = enemy.getPosition()
         const pp = player.getPosition()
         const edx = ep.x - pp.x
@@ -341,20 +350,9 @@ function startGame(seed?: string) {
           player.takeDamage(enemy.damage)
         }
       })
-    } else if (network.lastEnemyStates) {
+    } else if (network.lastEnemyStates && network.enemyStatesVersion !== lastEnemyVersion) {
+      lastEnemyVersion = network.enemyStatesVersion
       enemyMgr.applyNetStates(network.lastEnemyStates)
-      // Joiner still checks if enemies near enough to deal damage
-      for (const enemy of enemyMgr.getEnemies()) {
-        if (enemy.isDead()) continue
-        const ep = enemy.getPosition()
-        const pp = player.getPosition()
-        const edx = ep.x - pp.x
-        const edz = ep.z - pp.z
-        const dist = Math.sqrt(edx * edx + edz * edz)
-        if (dist < enemy.hitRadius + 0.5) {
-          // use attackCooldown-like check via flash timer
-        }
-      }
     }
 
     updateHearts()

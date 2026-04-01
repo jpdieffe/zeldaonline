@@ -1,1 +1,0 @@
-import{Zn as e}from"./index-Dgu50buj.js";export{e as lightProxyVertexShaderWGSL};

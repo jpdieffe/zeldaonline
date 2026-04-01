@@ -1,0 +1,1 @@
+import{G as e}from"./index-CUrLTXO0.js";export{e as rsmGlobalIlluminationPixelShaderWGSL};

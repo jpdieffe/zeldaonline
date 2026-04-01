@@ -1,0 +1,1 @@
+import{fr as e}from"./index-CUrLTXO0.js";export{e as shadowMapFragmentWGSL};

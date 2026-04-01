@@ -249,15 +249,11 @@ export class Player {
     const moving  = moveDir.length() > 0.01
     if (moving) moveDir.normalize()
 
-    // Player always faces away from camera; when moving, face movement direction
+    // Always face away from camera (camera→player direction)
     if (!this.attackLock) {
-      if (moving) {
-        this.facingY = Math.atan2(moveDir.x, moveDir.z)
-      } else {
-        // Face away from camera: camera orbits at alpha,
-        // so "away from camera" = alpha + PI
-        this.facingY = this.camera.alpha + Math.PI
-      }
+      const dx = this.position.x - this.camera.position.x
+      const dz = this.position.z - this.camera.position.z
+      this.facingY = Math.atan2(dx, dz)
     }
 
     // Speed selection

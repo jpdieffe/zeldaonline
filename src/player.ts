@@ -641,7 +641,13 @@ export class Player {
     }
 
     // ── Jump ──────────────────────────────────────────────────────────────
-    if (this.keys.has(' ') && this.onGround && !this.attackLock && !this.swimming) {
+    if (this.flyMode) {
+      // Flying: Space = ascend, C = descend, cancel normal gravity
+      this.velocity.y = 0
+      if (this.keys.has(' ')) this.velocity.y = 8
+      if (this.keys.has('c')) this.velocity.y = -8
+      this.onGround = false
+    } else if (this.keys.has(' ') && this.onGround && !this.attackLock && !this.swimming) {
       this.velocity.y = JUMP_VELOCITY
       this.onGround = false
       this.jumpPhase = 'start'
@@ -650,7 +656,7 @@ export class Player {
     }
 
     // ── Gravity / ground ──────────────────────────────────────────────────
-    if (!this.onGround) {
+    if (!this.onGround && !this.flyMode) {
       this.velocity.y += GRAVITY * dt
       if (this.velocity.y < TERMINAL_VEL) this.velocity.y = TERMINAL_VEL
     }
@@ -662,7 +668,7 @@ export class Player {
 
     // Land on ground or structure
     const groundY = this.getSurfaceY(this.position.x, this.position.z, this.position.y)
-    if (this.position.y <= groundY && this.velocity.y <= 0) {
+    if (!this.flyMode && this.position.y <= groundY && this.velocity.y <= 0) {
       this.position.y = groundY
       this.velocity.y = 0
       if (!this.onGround) {
@@ -679,7 +685,7 @@ export class Player {
     }
 
     // Grounded surface following
-    if (this.onGround) {
+    if (this.onGround && !this.flyMode) {
       const surfY = this.getSurfaceY(this.position.x, this.position.z, this.position.y)
       if (this.position.y > surfY + 0.5) {
         // ground dropped away, start falling
@@ -1074,6 +1080,40 @@ export class Player {
   getHealth(): number { return this.health }
   getMaxHealth(): number { return this.maxHealth }
   isDead(): boolean { return this.dead }
+
+  // ── Buff visuals ──────────────────────────────────────────────────────
+  private flyMode = false
+
+  setInvisible(on: boolean) {
+    const meshes = this.skinMeshSets[this.skinIndex]
+    if (!meshes) return
+    for (const m of meshes) {
+      if (!m.material) continue
+      ;(m.material as any).alpha = on ? 0.3 : 1.0
+    }
+  }
+
+  setArmorTint(on: boolean) {
+    const meshes = this.skinMeshSets[this.skinIndex]
+    if (!meshes) return
+    for (const m of meshes) {
+      if (!m.material) continue
+      const mat = m.material as any
+      if (mat.emissiveColor !== undefined) {
+        mat.emissiveColor = on ? new Color3(0.1, 0.15, 0.5) : new Color3(0, 0, 0)
+      }
+    }
+  }
+
+  setFlying(on: boolean) {
+    this.flyMode = on
+    if (on) {
+      this.onGround = false
+      this.velocity.y = 4
+    }
+  }
+
+  isFlying(): boolean { return this.flyMode }
 
   isThrowing(): boolean { return this.thrownActive && this.thrownBounces < 2 }
   getThrownSwordPos(): Vector3 | null {

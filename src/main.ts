@@ -372,6 +372,16 @@ async function startGame(seed?: string) {
     getEnemies: () => enemyMgr.getEnemies(),
     getPlayerHealth: () => player.getHealth(),
     getPlayerMaxHealth: () => player.getMaxHealth(),
+    onBuffStart: (effect) => {
+      if (effect === 'invisibility') player.setInvisible(true)
+      if (effect === 'armor') player.setArmorTint(true)
+      if (effect === 'fly') player.setFlying(true)
+    },
+    onBuffEnd: (effect) => {
+      if (effect === 'invisibility') player.setInvisible(false)
+      if (effect === 'armor') player.setArmorTint(false)
+      if (effect === 'fly') player.setFlying(false)
+    },
   })
   const debugMenu = new DebugItemMenu(inventory)
 
@@ -517,7 +527,10 @@ async function startGame(seed?: string) {
     // Enemy AI + attacks on player (horizontal distance)
     // Host runs AI; joiner applies received states
     if (!isJoiner) {
-      const positions = [player.getPosition()]
+      const positions: Vector3[] = []
+      if (!inventory.hasBuff('invisibility')) {
+        positions.push(player.getPosition())
+      }
       if (network.isConnected() && network.lastRemoteState) {
         positions.push(new Vector3(
           network.lastRemoteState.x,

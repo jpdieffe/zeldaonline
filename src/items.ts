@@ -45,19 +45,19 @@ const POTIONS: ItemDef[] = [
 // ── Scrolls: Instant ─────────────────────────────────────────────────────────
 const INSTANT_SCROLLS: ItemDef[] = [
   { id: 'scroll_armor',   name: 'Armor Scroll',       emoji: '🛡️', category: 'scroll', scrollMode: 'instant', instantEffect: 'armor',        duration: 15, description: 'Armor buff for 15s — take half damage' },
-  { id: 'scroll_summon',  name: 'Summon Scroll',      emoji: '👻', category: 'scroll', scrollMode: 'instant', instantEffect: 'summon',       duration: 20, description: 'Summon a friendly minion for 20s' },
-  { id: 'scroll_fly',     name: 'Flight Scroll',      emoji: '🕊️', category: 'scroll', scrollMode: 'instant', instantEffect: 'fly',          duration: 10, description: 'Fly for 10s — press space to ascend' },
+  { id: 'scroll_summon',  name: 'Summon Scroll',      emoji: '👻', category: 'scroll', scrollMode: 'instant', instantEffect: 'summon',       duration: 60, description: 'Summon a goblin follower for 60s' },
+  { id: 'scroll_fly',     name: 'Flight Scroll',      emoji: '🕊️', category: 'scroll', scrollMode: 'instant', instantEffect: 'fly',          duration: 10, description: 'Fly for 10s — Space=up, C=down' },
   { id: 'scroll_invis',   name: 'Invisibility Scroll',emoji: '👁️', category: 'scroll', scrollMode: 'instant', instantEffect: 'invisibility', duration: 12, description: 'Invisible for 12s — enemies ignore you' },
 ]
 
 // ── Scrolls: Target ──────────────────────────────────────────────────────────
 const TARGET_SCROLLS: ItemDef[] = [
-  { id: 'scroll_fire',      name: 'Fire Scroll',      emoji: '🔥', category: 'scroll', scrollMode: 'target', spellElement: 'fire',      spellDamage: 5, description: 'Aim & fire a fireball — 5 damage' },
-  { id: 'scroll_water',     name: 'Water Scroll',     emoji: '🌊', category: 'scroll', scrollMode: 'target', spellElement: 'water',     spellDamage: 3, description: 'Aim & fire a water blast — 3 damage + knockback' },
-  { id: 'scroll_rock',      name: 'Rock Scroll',      emoji: '🪨', category: 'scroll', scrollMode: 'target', spellElement: 'rock',      spellDamage: 4, description: 'Aim & hurl a boulder — 4 damage' },
-  { id: 'scroll_lightning', name: 'Lightning Scroll', emoji: '⚡', category: 'scroll', scrollMode: 'target', spellElement: 'lightning', spellDamage: 6, description: 'Aim & call lightning — 6 damage' },
-  { id: 'scroll_grass',     name: 'Grass Scroll',     emoji: '🌿', category: 'scroll', scrollMode: 'target', spellElement: 'grass',     spellDamage: 3, description: 'Aim & launch thorns — 3 damage + slow' },
-  { id: 'scroll_laser',     name: 'Laser Scroll',     emoji: '💥', category: 'scroll', scrollMode: 'target', spellElement: 'laser',     spellDamage: 8, description: 'Aim & fire a laser beam — 8 damage' },
+  { id: 'scroll_fire',      name: 'Fire Scroll',      emoji: '🔥', category: 'scroll', scrollMode: 'target', spellElement: 'fire',      spellDamage: 5, description: 'Aim & fire an exploding fireball — 5 damage AoE' },
+  { id: 'scroll_water',     name: 'Water Scroll',     emoji: '🌊', category: 'scroll', scrollMode: 'target', spellElement: 'water',     spellDamage: 3, description: 'Aim & spray a 5s water jet — 3 damage + knockback' },
+  { id: 'scroll_rock',      name: 'Rock Scroll',      emoji: '🪨', category: 'scroll', scrollMode: 'target', spellElement: 'rock',      spellDamage: 4, description: 'Aim & roll a massive boulder — 4 damage' },
+  { id: 'scroll_lightning', name: 'Lightning Scroll', emoji: '⚡', category: 'scroll', scrollMode: 'target', spellElement: 'lightning', spellDamage: 6, description: 'Aim & call a lightning strike from the sky — 6 damage AoE' },
+  { id: 'scroll_grass',     name: 'Grass Scroll',     emoji: '🌿', category: 'scroll', scrollMode: 'target', spellElement: 'grass',     spellDamage: 3, description: 'Aim & grow vines that trap enemies for 8s' },
+  { id: 'scroll_laser',     name: 'Laser Scroll',     emoji: '💥', category: 'scroll', scrollMode: 'target', spellElement: 'laser',     spellDamage: 8, description: 'Aim & fire a wide red laser beam — 8 damage' },
 ]
 
 // ── All Items + Lookup ───────────────────────────────────────────────────────

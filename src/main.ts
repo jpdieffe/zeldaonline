@@ -18,6 +18,8 @@ import { RemotePlayer } from './remote'
 import { EnemyManager, Enemy } from './enemy'
 import { Structures } from './structures'
 import { loadLevelData } from './level'
+import { Inventory, DebugItemMenu } from './inventory'
+import { rollLoot } from './items'
 
 const canvas = document.getElementById('renderCanvas') as HTMLCanvasElement
 const network = new Network()
@@ -355,6 +357,27 @@ async function startGame(seed?: string) {
     }
   }
 
+  // ── Inventory system ──────────────────────────────────────────────────────
+  const inventory = new Inventory(scene, ground)
+  inventory.setCallbacks({
+    onHeal: (amount) => player.heal(amount),
+    getPlayerPos: () => player.getPosition(),
+    getCameraForward: () => {
+      const cam = player.camera
+      const dir = cam.getTarget().subtract(cam.position)
+      dir.normalize()
+      return dir
+    },
+    getCameraPos: () => player.camera.position.clone(),
+    getEnemies: () => enemyMgr.getEnemies(),
+    getPlayerHealth: () => player.getHealth(),
+    getPlayerMaxHealth: () => player.getMaxHealth(),
+  })
+  const debugMenu = new DebugItemMenu(inventory)
+
+  // Track enemy deaths for loot drops
+  const enemyWasDead = new Set<Enemy>()
+
   // Hearts HUD
   const heartsDiv = document.createElement('div')
   heartsDiv.id = 'hearts'
@@ -522,12 +545,30 @@ async function startGame(seed?: string) {
         knockDir.y = 0
         if (knockDir.length() > 0.01) knockDir.normalize()
         player.knockBack(knockDir, 150)
-        player.takeDamage(enemy.damage)
+        const dmg = inventory.hasBuff('armor') ? Math.max(1, Math.floor(enemy.damage / 2)) : enemy.damage
+        player.takeDamage(dmg)
       })
     } else if (network.lastEnemyStates && network.enemyStatesVersion !== lastEnemyVersion) {
       lastEnemyVersion = network.enemyStatesVersion
       enemyMgr.applyNetStates(network.lastEnemyStates)
     }
+
+    // Loot drops on enemy death
+    for (const enemy of enemyMgr.getEnemies()) {
+      if (enemy.isDead() && !enemyWasDead.has(enemy)) {
+        enemyWasDead.add(enemy)
+        const loot = rollLoot()
+        if (loot) inventory.spawnGroundItem(loot, enemy.getPosition())
+      } else if (!enemy.isDead()) {
+        enemyWasDead.delete(enemy)
+      }
+    }
+
+    // Update inventory (ground items, buffs, spell projectiles)
+    inventory.update(dt)
+
+    // Armor buff halves damage (handled by inventory.hasBuff)
+    // (damage reduction is applied in the enemy attack callback above)
 
     updateHearts()
 

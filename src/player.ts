@@ -1061,6 +1061,11 @@ export class Player {
     return new Vector3(0, 5, 0)
   }
 
+  heal(amount: number) {
+    if (this.dead) return
+    this.health = Math.min(this.health + amount, this.maxHealth)
+  }
+
   getHealth(): number { return this.health }
   getMaxHealth(): number { return this.maxHealth }
   isDead(): boolean { return this.dead }

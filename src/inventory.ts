@@ -565,6 +565,12 @@ export class DebugItemMenu {
       if (e.key === '`' || e.key === '~') {
         this.visible = !this.visible
         root.style.display = this.visible ? 'block' : 'none'
+        if (this.visible) {
+          document.exitPointerLock()
+        } else {
+          const canvas = document.getElementById('renderCanvas') as HTMLCanvasElement | null
+          canvas?.requestPointerLock()
+        }
       }
     })
   }

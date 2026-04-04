@@ -578,11 +578,11 @@ export class Player {
       const rdx = this.position.x - this.camera.position.x
       const rdz = this.position.z - this.camera.position.z
       this.rollDir = new Vector3(rdx, 0, rdz).normalize()
-      this.velocity.x = this.rollDir.x * RUN_SPEED * 2
-      this.velocity.z = this.rollDir.z * RUN_SPEED * 2
-      // 2x anim speed → halve the lock timer
-      this.attackLockTimer = ((this.animDurations.get('roll') ?? 0.8) * 0.7) / 2
-      this.playAnim('roll', 2.0)
+      this.velocity.x = this.rollDir.x * RUN_SPEED * 10
+      this.velocity.z = this.rollDir.z * RUN_SPEED * 10
+      const dur = (this.animDurations.get('roll') ?? 0.8) / 4
+      this.attackLockTimer = dur
+      this.playAnim('roll', 4.0)
     }
 
     // ── Horizontal movement ───────────────────────────────────────────────

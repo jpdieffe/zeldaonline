@@ -168,9 +168,12 @@ export class Inventory {
   toggle() {
     this.isOpen = !this.isOpen
     if (this.uiRoot) this.uiRoot.style.display = this.isOpen ? 'block' : 'none'
-    if (this.isOpen) this.renderInventory()
-    // Release pointer lock when inventory is open
-    if (this.isOpen) document.exitPointerLock()
+    if (this.isOpen) {
+      this.renderInventory()
+      document.exitPointerLock()
+    } else {
+      this.hideTooltip()
+    }
   }
 
   isInventoryOpen(): boolean { return this.isOpen }
@@ -226,7 +229,7 @@ export class Inventory {
 
   private showTooltip(idx: number, e: MouseEvent) {
     const slot = this.slots[idx]
-    if (!slot || !this.tooltip) return
+    if (!slot || !this.tooltip) { this.hideTooltip(); return }
     const def = getItem(slot.itemId)
     if (!def) return
     this.tooltip.textContent = `${def.emoji} ${def.name}\n${def.description}`

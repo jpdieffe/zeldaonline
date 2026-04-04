@@ -1,0 +1,1 @@
+import{un as e}from"./index-CG8Ov-IW.js";export{e as ssao2PixelShaderWGSL};

@@ -1,0 +1,1 @@
+import{xo as e}from"./index-BRamJpGq.js";export{e as gaussianSplattingPixelShaderWGSL};

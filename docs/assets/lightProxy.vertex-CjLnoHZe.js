@@ -1,0 +1,1 @@
+import{$n as e}from"./index-BRamJpGq.js";export{e as lightProxyVertexShader};

@@ -165,6 +165,7 @@ export class Player {
   private health = 6
   private dead = false
   private respawnTimer = 0
+  private spawnPoint: Vector3 | null = null
   private iframeTimer = 0  // invincibility after taking damage
   private damageFlashTimer = 0
   private knockbackTimer = 0
@@ -215,6 +216,7 @@ export class Player {
 
   setPosition(x: number, y: number, z: number) {
     this.position.set(x, y, z)
+    this.spawnPoint = new Vector3(x, y, z)
   }
 
   // ── Camera ────────────────────────────────────────────────────────────────
@@ -993,8 +995,7 @@ export class Player {
   private respawn() {
     this.dead = false
     this.health = this.maxHealth
-    // Find a dry spawn point
-    this.position = this.findDrySpawn()
+    this.position = this.spawnPoint ? this.spawnPoint.clone() : this.findDrySpawn()
     this.velocity.set(0, 0, 0)
     this.onGround = true
     this.attackLock = false

@@ -1,1 +1,0 @@
-import{f as e}from"./index-BNXWAcML.js";export{e as spritesVertexShader};

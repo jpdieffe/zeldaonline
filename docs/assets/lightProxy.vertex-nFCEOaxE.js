@@ -1,1 +1,0 @@
-import{Zn as e}from"./index-BNXWAcML.js";export{e as lightProxyVertexShaderWGSL};

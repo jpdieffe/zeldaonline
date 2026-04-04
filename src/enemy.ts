@@ -45,7 +45,7 @@ const ENEMY_TYPES: EnemyTypeDef[] = [
     singleGlb: 'weak_orc.glb',
     animNames: { idle: 'Zombie_Idle_Loop', walk: 'Zombie_Walk_Fwd_Loop', bite: 'Sword_Attack', death: 'Death01' },
     scale: [1.6, 2.4], speed: [2, 3.5], health: [3, 5], damage: 1,
-    attackRange: 2.5, attackCooldown: 1.5, hitRadius: 1.0,
+    attackRange: 2.5, attackCooldown: 2.5, hitRadius: 1.0,
   },
   {
     folder: 'goblin',

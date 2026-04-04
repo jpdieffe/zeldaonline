@@ -1,1 +1,0 @@
-import{Yn as e}from"./index-BKpaqpBL.js";export{e as backgroundPixelShaderWGSL};

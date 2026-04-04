@@ -60,6 +60,7 @@ const ENEMY_TYPES: EnemyTypeDef[] = [
 const AGGRO_RANGE = 25
 const DEAGGRO_RANGE = 35
 const RESPAWN_TIME = 10
+const WATER_Y = -0.4
 
 // Seeded PRNG (mulberry32)
 function mulberry32(seed: number) {
@@ -339,7 +340,14 @@ export class Enemy {
           const angle = Math.random() * Math.PI * 2
           this.wanderDir = new Vector3(Math.sin(angle), 0, Math.cos(angle))
         }
-        this.position.addInPlace(this.wanderDir.scale(this.speed * 0.3 * dt))
+        const wanderStep = this.wanderDir.scale(this.speed * 0.3 * dt)
+        const nextY = this.getGroundY(this.position.x + wanderStep.x, this.position.z + wanderStep.z)
+        if (nextY > WATER_Y) {
+          this.position.addInPlace(wanderStep)
+        } else {
+          // Water ahead — pick new direction
+          this.wanderTimer = 0
+        }
         this.playAnim('walk')
       } else {
         this.playAnim('idle')
@@ -356,7 +364,11 @@ export class Enemy {
         this.state = 'attack'
       } else {
         const dir = toPlayer.normalize()
-        this.position.addInPlace(dir.scale(this.speed * dt))
+        const chaseStep = dir.scale(this.speed * dt)
+        const nextY = this.getGroundY(this.position.x + chaseStep.x, this.position.z + chaseStep.z)
+        if (nextY > WATER_Y) {
+          this.position.addInPlace(chaseStep)
+        }
         this.playAnim('walk')
       }
     }

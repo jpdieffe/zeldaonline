@@ -1,1 +1,0 @@
-import{Cn as e}from"./index-BKpaqpBL.js";export{e as colorVertexShaderWGSL};

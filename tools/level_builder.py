@@ -647,7 +647,7 @@ class LevelBuilder(tk.Tk):
         self._write_file(self.file_path)
 
     def _save_as(self):
-        default_dir = os.path.join(os.path.dirname(__file__), "..", "public")
+        default_dir = os.path.join(os.path.dirname(__file__), "..", "public", "maps")
         path = filedialog.asksaveasfilename(
             initialdir=default_dir,
             defaultextension=".json",
@@ -666,7 +666,7 @@ class LevelBuilder(tk.Tk):
         self.title(f"Level Builder — {os.path.basename(path)}")
 
     def _open_file(self):
-        default_dir = os.path.join(os.path.dirname(__file__), "..", "public")
+        default_dir = os.path.join(os.path.dirname(__file__), "..", "public", "maps")
         path = filedialog.askopenfilename(
             initialdir=default_dir,
             defaultextension=".json",

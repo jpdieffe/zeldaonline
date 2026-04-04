@@ -24,7 +24,7 @@ export interface LevelObject {
  */
 export async function loadLevelData(): Promise<LevelData | null> {
   try {
-    const resp = await fetch('./level.json')
+    const resp = await fetch('./maps/level1_map.json')
     if (!resp.ok) return null
     const data = await resp.json() as LevelData
     if (!data.heightmap || !Array.isArray(data.heightmap)) return null

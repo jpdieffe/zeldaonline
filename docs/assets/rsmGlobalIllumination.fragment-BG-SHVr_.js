@@ -1,0 +1,1 @@
+import{G as e}from"./index-CLMKrp0X.js";export{e as rsmGlobalIlluminationPixelShaderWGSL};

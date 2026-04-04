@@ -545,11 +545,9 @@ export class Player {
       const right = this.keys.has('d') || this.keys.has('arrowright')
 
       let dodgeDir: Vector3 | null = null
-      let anim: AnimState = 'roll'
 
       if (back) {
         dodgeDir = fwd.scale(-1)
-        anim = 'backflip'
       } else if (left) {
         dodgeDir = rht.scale(-1)
       } else if (right) {
@@ -560,18 +558,14 @@ export class Player {
         this.attackLock = true
         this.rolling = true
         this.rollDir = dodgeDir.normalize()
-        const speedMul = anim === 'backflip' ? 3 : 10
-        const animSpeed = anim === 'backflip' ? 8.0 : 4.0
-        const dur = (this.animDurations.get(anim) ?? 0.8) / animSpeed
+        const animSpeed = 4.0
+        const dur = (this.animDurations.get('roll') ?? 0.8) / animSpeed
         this.attackLockTimer = dur
-        this.velocity.x = this.rollDir.x * RUN_SPEED * speedMul
-        this.velocity.z = this.rollDir.z * RUN_SPEED * speedMul
-        // Rotate model to face dodge direction for side rolls
-        if (anim === 'roll') {
-          this.facingY = Math.atan2(this.rollDir.x, this.rollDir.z) + Math.PI
-        }
+        this.velocity.x = this.rollDir.x * RUN_SPEED * 10
+        this.velocity.z = this.rollDir.z * RUN_SPEED * 10
+        this.facingY = Math.atan2(this.rollDir.x, this.rollDir.z) + Math.PI
         this.isDefendingState = false
-        this.playAnim(anim, animSpeed)
+        this.playAnim('roll', animSpeed)
       }
     }
 

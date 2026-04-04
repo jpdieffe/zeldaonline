@@ -1,0 +1,1 @@
+import{Ot as e}from"./index-CLMKrp0X.js";export{e as blackAndWhitePixelShaderWGSL};

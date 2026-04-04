@@ -273,9 +273,13 @@ async function startGame(seed?: string) {
     }
   }
 
-  // Set wall collision for all enemies
+  // Set wall collision and projectile blocking for all enemies
   const wallCollider = (pos: Vector3) => structures.resolveCollision(pos)
-  for (const e of enemyMgr.getEnemies()) e.wallCollider = wallCollider
+  const projBlocker = (x: number, z: number) => structures.isInsideCabin(x, z)
+  for (const e of enemyMgr.getEnemies()) {
+    e.wallCollider = wallCollider
+    e.projectileBlocker = projBlocker
+  }
 
   // Move player to spawn point from level data
   if (levelData) {

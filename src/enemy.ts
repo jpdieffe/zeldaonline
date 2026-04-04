@@ -137,6 +137,8 @@ export class Enemy {
 
   // Wall collision
   wallCollider: ((pos: Vector3) => void) | null = null
+  // Projectile blocked by structure check
+  projectileBlocker: ((x: number, z: number) => boolean) | null = null
 
   constructor(scene: Scene, ground: GroundMesh, typeDef: EnemyTypeDef, spawnPos: Vector3, rng: () => number = Math.random) {
     this.scene = scene
@@ -534,7 +536,7 @@ export class Enemy {
     rockMesh.material = mat
 
     const spawnPos = this.position.clone()
-    spawnPos.y += 1.5 * this.scale
+    spawnPos.y += 0.8 * this.scale
     rockMesh.position.copyFrom(spawnPos)
 
     const speed = this.typeDef.projectileSpeed ?? 18
@@ -551,6 +553,13 @@ export class Enemy {
       p.pos.addInPlace(p.vel.scale(dt))
       p.mesh.position.copyFrom(p.pos)
       p.life -= dt
+
+      // Hit cabin — destroy projectile
+      if (this.projectileBlocker && this.projectileBlocker(p.pos.x, p.pos.z)) {
+        p.mesh.dispose()
+        this.projectiles.splice(i, 1)
+        continue
+      }
 
       // Hit ground — bounce or dispose
       const gy = this.getGroundY(p.pos.x, p.pos.z)

@@ -331,6 +331,18 @@ export class Structures {
     return result
   }
 
+  /** Check if a point is inside any cabin (XZ only) */
+  isInsideCabin(x: number, z: number): boolean {
+    for (const b of this.cabinBounds) {
+      const dx = x - b.cx
+      const dz = z - b.cz
+      const lx = dx * b.cosR - dz * b.sinR
+      const lz = dx * b.sinR + dz * b.cosR
+      if (Math.abs(lx) < b.halfW && Math.abs(lz) < b.halfD) return true
+    }
+    return false
+  }
+
   /** Push a position out of any cabin it overlaps (XZ only) */
   resolveCollision(pos: Vector3): void {
     for (const b of this.cabinBounds) {

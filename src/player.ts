@@ -207,6 +207,11 @@ export class Player {
     this.collidableMeshes = meshes
   }
 
+  private wallCollider: ((pos: Vector3) => void) | null = null
+  setWallCollider(fn: (pos: Vector3) => void) {
+    this.wallCollider = fn
+  }
+
   // ── Camera ────────────────────────────────────────────────────────────────
   private setupCamera() {
     const cam = new ArcRotateCamera('cam', -Math.PI / 2, 1.0, CAM_RADIUS, SPAWN.clone(), this.scene)
@@ -598,6 +603,9 @@ export class Player {
 
     this.position.addInPlace(this.velocity.scale(dt))
 
+    // Push out of cabin walls
+    if (this.wallCollider) this.wallCollider(this.position)
+
     // Land on ground or structure
     const groundY = this.getSurfaceY(this.position.x, this.position.z, this.position.y)
     if (this.position.y <= groundY && this.velocity.y <= 0) {
@@ -727,9 +735,9 @@ export class Player {
     const dx = this.position.x - this.camera.position.x
     const dz = this.position.z - this.camera.position.z
     this.dashDir = new Vector3(dx, 0, dz).normalize()
-    // Forward lunge impulse — 2x speed
-    this.velocity.x = this.dashDir.x * RUN_SPEED * 3.6
-    this.velocity.z = this.dashDir.z * RUN_SPEED * 3.6
+    // Forward lunge impulse — fast dash
+    this.velocity.x = this.dashDir.x * RUN_SPEED * 5.5
+    this.velocity.z = this.dashDir.z * RUN_SPEED * 5.5
     this.playAnim('sword_attack_b')
   }
 

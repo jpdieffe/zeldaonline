@@ -30,10 +30,17 @@ export interface CampDef {
   towerPos: Vector3
 }
 
+export interface CabinBounds {
+  cx: number; cz: number
+  halfW: number; halfD: number
+  sinR: number; cosR: number
+}
+
 /** All structure meshes that the player can stand on */
 export class Structures {
   readonly collidable: Mesh[] = []
   readonly camps: CampDef[] = []
+  readonly cabinBounds: CabinBounds[] = []
   private particles: ParticleSystem[] = []
 
   constructor(
@@ -165,6 +172,12 @@ export class Structures {
       // Re-apply materials via multi-material if needed
       merged.checkCollisions = false
       this.collidable.push(merged)
+      // Store oriented bounding box for XZ collision
+      this.cabinBounds.push({
+        cx: x, cz: z,
+        halfW: w / 2 + 0.5, halfD: d / 2 + 0.5, // pad by character radius
+        sinR: Math.sin(-rotY), cosR: Math.cos(-rotY),
+      })
     }
   }
 
@@ -316,6 +329,32 @@ export class Structures {
       }
     }
     return result
+  }
+
+  /** Push a position out of any cabin it overlaps (XZ only) */
+  resolveCollision(pos: Vector3): void {
+    for (const b of this.cabinBounds) {
+      // Transform to cabin local space
+      const dx = pos.x - b.cx
+      const dz = pos.z - b.cz
+      const lx = dx * b.cosR - dz * b.sinR
+      const lz = dx * b.sinR + dz * b.cosR
+      // Check overlap
+      if (Math.abs(lx) < b.halfW && Math.abs(lz) < b.halfD) {
+        // Push out along axis with smallest penetration
+        const overlapX = b.halfW - Math.abs(lx)
+        const overlapZ = b.halfD - Math.abs(lz)
+        let pushLx = 0, pushLz = 0
+        if (overlapX < overlapZ) {
+          pushLx = overlapX * Math.sign(lx)
+        } else {
+          pushLz = overlapZ * Math.sign(lz)
+        }
+        // Transform push back to world space
+        pos.x += pushLx * b.cosR + pushLz * b.sinR
+        pos.z += -pushLx * b.sinR + pushLz * b.cosR
+      }
+    }
   }
 
   dispose() {

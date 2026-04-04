@@ -200,14 +200,23 @@ function startGame(seed?: string) {
   // Structures (camps with cabins, campfires, towers)
   const structures = new Structures(scene, ground, 6, seed)
   player.setCollidableMeshes(structures.collidable)
+  player.setWallCollider((pos) => structures.resolveCollision(pos))
 
   // Enemies — spawn around camp centers
   const campCenters = structures.camps.map(c => c.center)
   const enemyMgr = new EnemyManager(scene, ground, 20, seed, campCenters)
 
+  // Set wall collision for all enemies
+  const wallCollider = (pos: Vector3) => structures.resolveCollision(pos)
+  for (const e of enemyMgr.getEnemies()) e.wallCollider = wallCollider
+
   // Place goblins on tower tops
   for (const pos of structures.getTowerTopPositions()) {
     enemyMgr.spawnAt('goblin', pos, true)
+  }
+  // Set wall collision for tower goblins too
+  for (const e of enemyMgr.getEnemies()) {
+    if (!e.wallCollider) e.wallCollider = wallCollider
   }
 
   // Hearts HUD

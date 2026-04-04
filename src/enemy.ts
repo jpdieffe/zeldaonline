@@ -134,6 +134,9 @@ export class Enemy {
   private lungeTimer = 0
   private lungeHit = false
 
+  // Wall collision
+  wallCollider: ((pos: Vector3) => void) | null = null
+
   constructor(scene: Scene, ground: GroundMesh, typeDef: EnemyTypeDef, spawnPos: Vector3, rng: () => number = Math.random) {
     this.scene = scene
     this.ground = ground
@@ -394,7 +397,8 @@ export class Enemy {
       const lungeDx = nearestPos.x - this.position.x
       const lungeDz = nearestPos.z - this.position.z
       const lungeDist = Math.sqrt(lungeDx * lungeDx + lungeDz * lungeDz)
-      if (!this.lungeHit && lungeDist < this.hitRadius) {
+      const lungeYDiff = Math.abs(nearestPos.y - this.position.y)
+      if (!this.lungeHit && lungeDist < this.hitRadius && lungeYDiff < 2.5) {
         this.lungeHit = true
         wantAttack = true
         // Stop lunge on contact so orc doesn't pass through
@@ -415,6 +419,9 @@ export class Enemy {
     } else {
       this.knockVel.set(0, 0, 0)
     }
+
+    // Push out of cabin walls
+    if (this.wallCollider) this.wallCollider(this.position)
 
     // Stay on ground (or platform)
     if (this.platformY != null) {

@@ -247,6 +247,11 @@ export class Inventory {
     if (this.tooltip) this.tooltip.style.display = 'none'
   }
 
+  /** Call after items change to refresh the UI */
+  private refreshIfOpen() {
+    if (this.isOpen) this.renderInventory()
+  }
+
   // ── Item Use ────────────────────────────────────────────────────────────
   private useItem(idx: number) {
     const slot = this.slots[idx]
@@ -429,6 +434,7 @@ export class Inventory {
         if (this.addItem(gi.itemId)) {
           gi.mesh.dispose()
           this.groundItems.splice(i, 1)
+          this.refreshIfOpen()
         }
       }
     }
@@ -514,8 +520,8 @@ export class Inventory {
       }
     }
 
-    // Refresh inventory UI if open
-    if (this.isOpen) this.renderInventory()
+    // Refresh inventory UI if open — only update buff timers, not full rebuild
+    // (full rebuild destroys click handlers)
   }
 
   // ── Debug: spawn item on ground near player ─────────────────────────────

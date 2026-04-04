@@ -235,7 +235,12 @@ export class Player {
     cam.attachControl(canvas, true)
     this.camera = cam
 
-    canvas.addEventListener('click', () => canvas.requestPointerLock())
+    canvas.addEventListener('click', () => {
+      // Don't re-lock pointer if a UI overlay (inventory/debug) is open
+      if (document.getElementById('inventoryPanel')?.style.display === 'block') return
+      if (document.getElementById('debugItemMenu')?.style.display === 'block') return
+      canvas.requestPointerLock()
+    })
 
     document.addEventListener('mousemove', (e) => {
       if (document.pointerLockElement !== canvas) return

@@ -1,0 +1,1 @@
+import{G as e}from"./index-Cu5kRnzw.js";export{e as rsmGlobalIlluminationPixelShaderWGSL};

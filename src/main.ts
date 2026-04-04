@@ -352,7 +352,14 @@ function startGame(seed?: string) {
         const lungeDir = enemyMgr.getLungeDir(enemy)
         // The attack comes FROM the lunge direction — place virtual origin in front of player
         const attackOrigin = pp.add(lungeDir.scale(-5))
-        if (player.canBlockFrom(attackOrigin)) return
+        if (player.canBlockFrom(attackOrigin)) {
+          // Blocked — bounce player back while keeping defend pose
+          const bounceDir = lungeDir.clone()
+          bounceDir.y = 0
+          if (bounceDir.length() > 0.01) bounceDir.normalize()
+          player.shieldBounce(bounceDir, 60)
+          return
+        }
         // Knockback player away from enemy
         const ep = enemy.getPosition()
         const knockDir = pp.subtract(ep)

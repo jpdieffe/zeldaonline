@@ -911,6 +911,14 @@ export class Player {
     this.knockbackTimer = 0.5
   }
 
+  /** Push back from a blocked hit — no damage, stays in defend pose */
+  shieldBounce(dir: Vector3, force: number) {
+    this.velocity.x = dir.x * force
+    this.velocity.z = dir.z * force
+    this.velocity.y = force * 0.1
+    this.knockbackTimer = 0.3
+  }
+
   private applyDamageFlash(on: boolean) {
     const meshes = this.skinMeshSets[this.skinIndex]
     if (!meshes) return

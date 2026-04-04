@@ -11,6 +11,8 @@ import {
   TrailMesh,
   StandardMaterial,
   Color3,
+  Ray,
+  Mesh,
 } from '@babylonjs/core'
 import type { AnimState, PlayerState } from './types'
 
@@ -71,6 +73,7 @@ const ONE_SHOT: Set<AnimState> = new Set([
 export class Player {
   private scene: Scene
   private ground: GroundMesh
+  private collidableMeshes: Mesh[] = []
 
   position = SPAWN.clone()
   private velocity = Vector3.Zero()
@@ -178,6 +181,30 @@ export class Player {
   private getGroundY(x: number, z: number): number {
     const y = this.ground.getHeightAtCoordinates(x, z)
     return (y != null && isFinite(y)) ? y : 0
+  }
+
+  /** Get the highest surface Y at (x,z) including terrain and collidable structures */
+  private getSurfaceY(x: number, z: number, playerY: number): number {
+    let best = this.getGroundY(x, z)
+    if (this.collidableMeshes.length === 0) return best
+    // Raycast down from above the player to find platforms
+    const origin = new Vector3(x, playerY + 2, z)
+    const ray = new Ray(origin, Vector3.Down(), 50)
+    for (const mesh of this.collidableMeshes) {
+      const hit = ray.intersectsMesh(mesh, false)
+      if (hit.hit && hit.pickedPoint) {
+        const py = hit.pickedPoint.y
+        // Only count surfaces that are below or at player feet (not above head)
+        if (py <= playerY + 0.5 && py > best) {
+          best = py
+        }
+      }
+    }
+    return best
+  }
+
+  setCollidableMeshes(meshes: Mesh[]) {
+    this.collidableMeshes = meshes
   }
 
   // ── Camera ────────────────────────────────────────────────────────────────
@@ -571,8 +598,8 @@ export class Player {
 
     this.position.addInPlace(this.velocity.scale(dt))
 
-    // Land on ground
-    const groundY = this.getGroundY(this.position.x, this.position.z)
+    // Land on ground or structure
+    const groundY = this.getSurfaceY(this.position.x, this.position.z, this.position.y)
     if (this.position.y <= groundY && this.velocity.y <= 0) {
       this.position.y = groundY
       this.velocity.y = 0
@@ -591,7 +618,7 @@ export class Player {
 
     // Grounded surface following
     if (this.onGround) {
-      const surfY = this.getGroundY(this.position.x, this.position.z)
+      const surfY = this.getSurfaceY(this.position.x, this.position.z, this.position.y)
       if (this.position.y > surfY + 0.5) {
         // ground dropped away, start falling
         this.onGround = false

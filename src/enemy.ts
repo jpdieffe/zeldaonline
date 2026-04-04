@@ -105,6 +105,7 @@ export class Enemy {
   private attackCooldown = 0
   hitRadius: number
   damage: number
+  platformY: number | null = null  // if set, overrides ground snap (tower enemies)
 
   // Knockback
   private knockVel = Vector3.Zero()
@@ -329,9 +330,9 @@ export class Enemy {
     // State transitions
     if (this.state === 'idle') {
       if (dist < AGGRO_RANGE) {
-        this.state = 'chase'
-      } else {
-        // Wander
+        this.state = this.platformY != null ? 'attack' : 'chase'
+      } else if (this.platformY == null) {
+        // Wander (ground enemies only)
         this.wanderTimer -= dt
         if (this.wanderTimer <= 0) {
           this.wanderTimer = rand(2, 5)
@@ -340,11 +341,16 @@ export class Enemy {
         }
         this.position.addInPlace(this.wanderDir.scale(this.speed * 0.3 * dt))
         this.playAnim('walk')
+      } else {
+        this.playAnim('idle')
       }
     }
 
     if (this.state === 'chase') {
-      if (dist > DEAGGRO_RANGE) {
+      if (this.platformY != null) {
+        // Platform enemies don't chase — attack from position
+        this.state = dist < this.typeDef.attackRange * this.scale ? 'attack' : 'idle'
+      } else if (dist > DEAGGRO_RANGE) {
         this.state = 'idle'
       } else if (dist < this.typeDef.attackRange * this.scale) {
         this.state = 'attack'
@@ -413,8 +419,12 @@ export class Enemy {
       this.knockVel.set(0, 0, 0)
     }
 
-    // Stay on ground
-    this.position.y = this.getGroundY(this.position.x, this.position.z)
+    // Stay on ground (or platform)
+    if (this.platformY != null) {
+      this.position.y = this.platformY
+    } else {
+      this.position.y = this.getGroundY(this.position.x, this.position.z)
+    }
 
     // Facing direction (+ PI to face forward)
     if (this.state === 'chase' || this.state === 'attack') {
@@ -705,25 +715,38 @@ export class Enemy {
 }
 
 // ── Enemy Manager ───────────────────────────────────────────────────────────
+export { ENEMY_TYPES }
+
 export class EnemyManager {
+  private scene: Scene
+  private ground: GroundMesh
   private enemies: Enemy[] = []
 
-  constructor(scene: Scene, ground: GroundMesh, count = 20, seed?: string) {
+  constructor(scene: Scene, ground: GroundMesh, count = 20, seed?: string, campCenters?: Vector3[]) {
+    this.scene = scene
+    this.ground = ground
     const rng = seed ? mulberry32(hashSeed(seed)) : Math.random
     const GROUND_SIZE = 200
     const half = GROUND_SIZE / 2 - 10
     const CLUSTER_SIZE = 3
-    const CLUSTER_SPREAD = 4  // units apart within a cluster
+    const CLUSTER_SPREAD = 6  // units apart within a cluster
 
     const clusterCount = Math.ceil(count / CLUSTER_SIZE)
     let spawned = 0
 
     for (let c = 0; c < clusterCount && spawned < count; c++) {
       const typeDef = ENEMY_TYPES[Math.floor(rng() * ENEMY_TYPES.length)]
-      // Pick cluster center
-      const cx = rand(-half, half, rng)
-      const cz = rand(-half, half, rng)
-      const cy = ground.getHeightAtCoordinates(cx, cz) ?? 0
+      // Pick cluster center — prefer camp centers if available
+      let cx: number, cz: number, cy: number
+      if (campCenters && campCenters.length > 0) {
+        const camp = campCenters[c % campCenters.length]
+        cx = camp.x + rand(-6, 6, rng)
+        cz = camp.z + rand(-6, 6, rng)
+      } else {
+        cx = rand(-half, half, rng)
+        cz = rand(-half, half, rng)
+      }
+      cy = ground.getHeightAtCoordinates(cx, cz) ?? 0
       if (cy < -0.2) continue  // skip water clusters
 
       for (let i = 0; i < CLUSTER_SIZE && spawned < count; i++) {
@@ -751,6 +774,15 @@ export class EnemyManager {
 
   /** Get the flat lunge direction of the last lunge (for shield directional check) */
   getLungeDir(enemy: Enemy): Vector3 { return enemy._lungeDir.length() > 0.01 ? enemy._lungeDir : Vector3.Forward() }
+
+  /** Spawn a specific enemy type at a given position (e.g. goblin on tower top) */
+  spawnAt(typeName: string, pos: Vector3, onPlatform = false) {
+    const typeDef = ENEMY_TYPES.find(t => t.folder === typeName)
+    if (!typeDef) return
+    const enemy = new Enemy(this.scene, this.ground, typeDef, pos)
+    if (onPlatform) enemy.platformY = pos.y
+    this.enemies.push(enemy)
+  }
 
   /** Check if player's sword hits any enemy */
   checkSwordHits(swordPos: Vector3, damage: number) {

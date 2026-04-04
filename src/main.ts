@@ -15,6 +15,7 @@ import { Player } from './player'
 import { Network } from './network'
 import { RemotePlayer } from './remote'
 import { EnemyManager, Enemy } from './enemy'
+import { Structures } from './structures'
 
 const canvas = document.getElementById('renderCanvas') as HTMLCanvasElement
 const network = new Network()
@@ -196,8 +197,18 @@ function startGame(seed?: string) {
   // Player
   const player = new Player(scene, ground)
 
-  // Enemies (seeded for deterministic spawning across clients)
-  const enemyMgr = new EnemyManager(scene, ground, 20, seed)
+  // Structures (camps with cabins, campfires, towers)
+  const structures = new Structures(scene, ground, 6, seed)
+  player.setCollidableMeshes(structures.collidable)
+
+  // Enemies — spawn around camp centers
+  const campCenters = structures.camps.map(c => c.center)
+  const enemyMgr = new EnemyManager(scene, ground, 20, seed, campCenters)
+
+  // Place goblins on tower tops
+  for (const pos of structures.getTowerTopPositions()) {
+    enemyMgr.spawnAt('goblin', pos, true)
+  }
 
   // Hearts HUD
   const heartsDiv = document.createElement('div')

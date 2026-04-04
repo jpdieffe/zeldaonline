@@ -1,0 +1,1 @@
+import{Mt as e}from"./index-BAW4NCDe.js";export{e as fxaaVertexShader};

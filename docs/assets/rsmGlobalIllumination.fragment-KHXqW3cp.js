@@ -1,0 +1,1 @@
+import{G as e}from"./index-BAW4NCDe.js";export{e as rsmGlobalIlluminationPixelShaderWGSL};

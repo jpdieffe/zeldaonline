@@ -530,6 +530,44 @@ export class Player {
       this.isDefendingState = true
     }
 
+    // ── Defend dodge (defend + direction + jump) ─────────────────────────
+    if (this.isDefendingState && this.keys.has(' ') && this.onGround && !this.attackLock) {
+      this.keys.delete(' ')
+      // Camera-relative directions
+      const fdx = this.position.x - this.camera.position.x
+      const fdz = this.position.z - this.camera.position.z
+      const fwd = new Vector3(fdx, 0, fdz).normalize()
+      const rht = new Vector3(fwd.z, 0, -fwd.x)
+
+      const back  = this.keys.has('s') || this.keys.has('arrowdown')
+      const left  = this.keys.has('a') || this.keys.has('arrowleft')
+      const right = this.keys.has('d') || this.keys.has('arrowright')
+
+      let dodgeDir: Vector3 | null = null
+      let anim: AnimState = 'roll'
+
+      if (back) {
+        dodgeDir = fwd.scale(-1)
+        anim = 'backflip'
+      } else if (left) {
+        dodgeDir = rht.scale(-1)
+      } else if (right) {
+        dodgeDir = rht.scale(1)
+      }
+
+      if (dodgeDir) {
+        this.attackLock = true
+        this.rolling = true
+        this.rollDir = dodgeDir.normalize()
+        const dur = ((this.animDurations.get(anim) ?? 0.8) * 0.7) / 2
+        this.attackLockTimer = dur
+        this.velocity.x = this.rollDir.x * RUN_SPEED * 3
+        this.velocity.z = this.rollDir.z * RUN_SPEED * 3
+        this.isDefendingState = false
+        this.playAnim(anim, 2.0)
+      }
+    }
+
     // ── Roll / backflip ───────────────────────────────────────────────────
     if (this.keys.has('q') && this.onGround && !this.attackLock && !this.swimming) {
       this.keys.delete('q')
@@ -539,6 +577,8 @@ export class Player {
       const rdx = this.position.x - this.camera.position.x
       const rdz = this.position.z - this.camera.position.z
       this.rollDir = new Vector3(rdx, 0, rdz).normalize()
+      this.velocity.x = this.rollDir.x * RUN_SPEED * 2
+      this.velocity.z = this.rollDir.z * RUN_SPEED * 2
       // 2x anim speed → halve the lock timer
       this.attackLockTimer = ((this.animDurations.get('roll') ?? 0.8) * 0.7) / 2
       this.playAnim('roll', 2.0)
@@ -576,10 +616,10 @@ export class Player {
     }
     if (this.swimming) speed = this.sprinting ? JOG_SPEED : WALK_SPEED
 
-    // Rolling overrides: lunge forward in the facing direction
+    // Rolling overrides: friction decay for dodge impulse
     if (this.rolling) {
-      this.velocity.x = this.rollDir.x * RUN_SPEED
-      this.velocity.z = this.rollDir.z * RUN_SPEED
+      this.velocity.x *= 0.92
+      this.velocity.z *= 0.92
     } else if (this.dashing) {
       // Dash decelerates over time (friction)
       this.velocity.x *= 0.92

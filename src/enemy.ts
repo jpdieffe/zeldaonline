@@ -751,7 +751,7 @@ export class EnemyManager {
     this.scene = scene
     this.ground = ground
     const rng = seed ? mulberry32(hashSeed(seed)) : Math.random
-    const GROUND_SIZE = 200
+    const GROUND_SIZE = 400
     const half = GROUND_SIZE / 2 - 10
     const CLUSTER_SIZE = 3
     const CLUSTER_SPREAD = 6  // units apart within a cluster

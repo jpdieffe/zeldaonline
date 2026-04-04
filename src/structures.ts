@@ -50,7 +50,7 @@ export class Structures {
     seed?: string,
   ) {
     const rng = seed ? mulberry32(hashSeed(seed)) : Math.random
-    const half = 80 // stay within -80..80 (ground is 200 wide)
+    const half = 170 // stay within -170..170 (ground is 400 wide)
 
     for (let i = 0; i < campCount; i++) {
       // Pick camp center on dry land

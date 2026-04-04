@@ -23,9 +23,9 @@ from tkinter import ttk, filedialog, messagebox
 from typing import Optional
 
 # ── Constants matching the game ──────────────────────────────────────────────
-GROUND_SIZE = 200
-SUBDIVISIONS = 128
-GRID = SUBDIVISIONS + 1  # 129 vertices per axis
+GROUND_SIZE = 400
+SUBDIVISIONS = 256
+GRID = SUBDIVISIONS + 1  # 257 vertices per axis
 WATER_Y = -0.4
 CELL_WORLD = GROUND_SIZE / SUBDIVISIONS  # ~1.5625 world units per cell
 

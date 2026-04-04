@@ -10,6 +10,7 @@ import {
   StandardMaterial,
   GroundMesh,
   VertexBuffer,
+  AbstractMesh,
 } from '@babylonjs/core'
 import { Player } from './player'
 import { Network } from './network'
@@ -153,7 +154,7 @@ async function startGame(seed?: string) {
   // Fog
   scene.fogMode = Scene.FOGMODE_EXP2
   scene.fogColor = new Color3(0.55, 0.78, 0.96)
-  scene.fogDensity = 0.004
+  scene.fogDensity = 0.012
 
   // Lights
   const hemi = new HemisphericLight('hemi', new Vector3(0, 1, 0), scene)
@@ -162,8 +163,8 @@ async function startGame(seed?: string) {
   sun.intensity = 0.9
 
   // Ground with hills
-  const GROUND_SIZE = 200
-  const SUBDIVISIONS = 128
+  const GROUND_SIZE = 400
+  const SUBDIVISIONS = 256
   const ground = MeshBuilder.CreateGround('ground', {
     width: GROUND_SIZE, height: GROUND_SIZE,
     subdivisions: SUBDIVISIONS, updatable: true,
@@ -204,8 +205,30 @@ async function startGame(seed?: string) {
   ground._heightQuads = null as any  // force recalc
   ground.updateCoordinateHeights()
 
+  // ── Cliff walls around border ────────────────────────────────────────────
+  const CLIFF_HEIGHT = 30
+  const CLIFF_THICK = 6
+  const halfG = GROUND_SIZE / 2
+  const cliffMat = new StandardMaterial('cliffMat', scene)
+  cliffMat.diffuseColor = new Color3(0.38, 0.34, 0.28)
+  cliffMat.specularColor = new Color3(0.05, 0.05, 0.05)
+  const cliffDefs: { name: string; w: number; d: number; x: number; z: number }[] = [
+    { name: 'cliffN', w: GROUND_SIZE + CLIFF_THICK * 2, d: CLIFF_THICK, x: 0, z:  halfG + CLIFF_THICK / 2 },
+    { name: 'cliffS', w: GROUND_SIZE + CLIFF_THICK * 2, d: CLIFF_THICK, x: 0, z: -halfG - CLIFF_THICK / 2 },
+    { name: 'cliffE', w: CLIFF_THICK, d: GROUND_SIZE + CLIFF_THICK * 2, x:  halfG + CLIFF_THICK / 2, z: 0 },
+    { name: 'cliffW', w: CLIFF_THICK, d: GROUND_SIZE + CLIFF_THICK * 2, x: -halfG - CLIFF_THICK / 2, z: 0 },
+  ]
+  const cliffMeshes: AbstractMesh[] = []
+  for (const cd of cliffDefs) {
+    const wall = MeshBuilder.CreateBox(cd.name, { width: cd.w, height: CLIFF_HEIGHT, depth: cd.d }, scene)
+    wall.position.set(cd.x, CLIFF_HEIGHT / 2 - 2, cd.z)
+    wall.material = cliffMat
+    wall.checkCollisions = true
+    cliffMeshes.push(wall)
+  }
+
   // Water plane (slightly below ground)
-  const water = MeshBuilder.CreateGround('water', { width: 500, height: 500 }, scene)
+  const water = MeshBuilder.CreateGround('water', { width: 900, height: 900 }, scene)
   water.position.y = levelData?.waterY ?? -0.4
   const waterMat = new StandardMaterial('waterMat', scene)
   waterMat.diffuseColor = new Color3(0.15, 0.35, 0.7)
@@ -245,7 +268,15 @@ async function startGame(seed?: string) {
   }
 
   player.setCollidableMeshes(structures.collidable)
-  player.setWallCollider((pos) => structures.resolveCollision(pos))
+  player.setWallCollider((pos) => {
+    structures.resolveCollision(pos)
+    // Clamp to cliff walls
+    const border = halfG - 1
+    if (pos.x >  border) pos.x =  border
+    if (pos.x < -border) pos.x = -border
+    if (pos.z >  border) pos.z =  border
+    if (pos.z < -border) pos.z = -border
+  })
 
   // Enemies
   let enemyMgr: EnemyManager
@@ -274,7 +305,14 @@ async function startGame(seed?: string) {
   }
 
   // Set wall collision and projectile blocking for all enemies
-  const wallCollider = (pos: Vector3) => structures.resolveCollision(pos)
+  const wallCollider = (pos: Vector3) => {
+    structures.resolveCollision(pos)
+    const border = halfG - 1
+    if (pos.x >  border) pos.x =  border
+    if (pos.x < -border) pos.x = -border
+    if (pos.z >  border) pos.z =  border
+    if (pos.z < -border) pos.z = -border
+  }
   const projBlocker = (x: number, z: number) => structures.isInsideCabin(x, z)
   for (const e of enemyMgr.getEnemies()) {
     e.wallCollider = wallCollider

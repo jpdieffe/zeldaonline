@@ -221,7 +221,7 @@ export class Player {
     const cam = new ArcRotateCamera('cam', -Math.PI / 2, 1.0, CAM_RADIUS, SPAWN.clone(), this.scene)
     cam.lowerRadiusLimit  = CAM_MIN_RADIUS
     cam.upperRadiusLimit  = CAM_MAX_RADIUS
-    cam.lowerBetaLimit    = 0.15
+    cam.lowerBetaLimit    = 0.05              // allow looking nearly straight up
     cam.upperBetaLimit    = Math.PI * 0.48   // don't let camera go underground
 
     cam.panningSensibility = 0
@@ -687,6 +687,17 @@ export class Player {
     // ── Camera follow ─────────────────────────────────────────────────────
     const headY = this.position.y + PLAYER_HEIGHT * 0.8
     this.camera.target.set(this.position.x, headY, this.position.z)
+
+    // When looking up (low beta), pull camera closer so it doesn't clip underground
+    const LOOK_UP_THRESHOLD = 0.6  // beta below this starts pulling in
+    const beta = this.camera.beta
+    if (beta < LOOK_UP_THRESHOLD) {
+      const t = beta / LOOK_UP_THRESHOLD   // 0 = straight up, 1 = threshold
+      const maxR = this.camera.radius
+      const closeR = CAM_MIN_RADIUS + 1
+      const desired = closeR + (maxR - closeR) * t
+      if (this.camera.radius > desired) this.camera.radius = desired
+    }
   }
 
   private updateTimers(dt: number) {
@@ -992,7 +1003,7 @@ export class Player {
 
   private findDrySpawn(): Vector3 {
     // Try origin first, then search outward
-    for (let r = 0; r <= 80; r += 5) {
+    for (let r = 0; r <= 160; r += 5) {
       for (let a = 0; a < 8; a++) {
         const angle = a * Math.PI / 4
         const x = Math.cos(angle) * r

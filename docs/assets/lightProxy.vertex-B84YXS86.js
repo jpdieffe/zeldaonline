@@ -1,1 +1,0 @@
-import{$n as e}from"./index-Cg5CdYTG.js";export{e as lightProxyVertexShader};

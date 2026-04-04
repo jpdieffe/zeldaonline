@@ -559,12 +559,18 @@ export class Player {
         this.attackLock = true
         this.rolling = true
         this.rollDir = dodgeDir.normalize()
-        const dur = ((this.animDurations.get(anim) ?? 0.8) * 0.7) / 2
+        const speedMul = anim === 'backflip' ? 3 : 5
+        const animSpeed = anim === 'backflip' ? 3.0 : 2.0
+        const dur = ((this.animDurations.get(anim) ?? 0.8) * 0.7) / animSpeed
         this.attackLockTimer = dur
-        this.velocity.x = this.rollDir.x * RUN_SPEED * 3
-        this.velocity.z = this.rollDir.z * RUN_SPEED * 3
+        this.velocity.x = this.rollDir.x * RUN_SPEED * speedMul
+        this.velocity.z = this.rollDir.z * RUN_SPEED * speedMul
+        // Rotate model to face dodge direction for side rolls
+        if (anim === 'roll') {
+          this.facingY = Math.atan2(this.rollDir.x, this.rollDir.z) + Math.PI
+        }
         this.isDefendingState = false
-        this.playAnim(anim, 2.0)
+        this.playAnim(anim, animSpeed)
       }
     }
 

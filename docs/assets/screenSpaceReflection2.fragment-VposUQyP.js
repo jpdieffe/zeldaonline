@@ -1,0 +1,1 @@
+import{an as e}from"./index-BKpaqpBL.js";export{e as screenSpaceReflection2PixelShaderWGSL};

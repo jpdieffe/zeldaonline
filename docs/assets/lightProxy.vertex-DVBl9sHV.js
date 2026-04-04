@@ -1,0 +1,1 @@
+import{$n as e}from"./index-BKpaqpBL.js";export{e as lightProxyVertexShader};

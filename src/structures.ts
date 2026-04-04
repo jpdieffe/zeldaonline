@@ -110,7 +110,7 @@ export class Structures {
   }
 
   // ── Log Cabin ──────────────────────────────────────────────────────────────
-  private buildCabin(x: number, y: number, z: number, rotY: number, id: number, rng: () => number) {
+  buildCabin(x: number, y: number, z: number, rotY: number, id: number, rng: () => number = Math.random) {
     const woodMat = new StandardMaterial(`cabinWood_${id}`, this.scene)
     woodMat.diffuseColor = new Color3(0.45, 0.28, 0.12)
     woodMat.specularColor = Color3.Black()
@@ -182,7 +182,7 @@ export class Structures {
   }
 
   // ── Campfire ──────────────────────────────────────────────────────────────
-  private buildCampfire(x: number, y: number, z: number, id: number) {
+  buildCampfire(x: number, y: number, z: number, id: number) {
     // Stone ring
     const ring = MeshBuilder.CreateTorus(`fire_ring_${id}`, {
       diameter: 1.8, thickness: 0.35, tessellation: 12,
@@ -229,7 +229,7 @@ export class Structures {
   }
 
   // ── Watch Tower ───────────────────────────────────────────────────────────
-  buildTower(x: number, y: number, z: number, id: number, rng: () => number) {
+  buildTower(x: number, y: number, z: number, id: number, rng: () => number = Math.random) {
     const woodMat = new StandardMaterial(`towerWood_${id}`, this.scene)
     woodMat.diffuseColor = new Color3(0.5, 0.32, 0.15)
     woodMat.specularColor = Color3.Black()

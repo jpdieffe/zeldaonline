@@ -774,6 +774,25 @@ export class EnemyManager {
         onEnemyAttack(enemy)
       }
     }
+    // Separate overlapping ground enemies so they don't stack
+    const alive = this.enemies.filter(e => !e.isDead() && e.platformY == null)
+    for (let i = 0; i < alive.length; i++) {
+      for (let j = i + 1; j < alive.length; j++) {
+        const a = alive[i], b = alive[j]
+        const dx = a.position.x - b.position.x
+        const dz = a.position.z - b.position.z
+        const dist = Math.sqrt(dx * dx + dz * dz)
+        const minDist = (a.hitRadius + b.hitRadius) * 1.2
+        if (dist < minDist && dist > 0.001) {
+          const overlap = (minDist - dist) * 0.5
+          const nx = dx / dist, nz = dz / dist
+          a.position.x += nx * overlap
+          a.position.z += nz * overlap
+          b.position.x -= nx * overlap
+          b.position.z -= nz * overlap
+        }
+      }
+    }
   }
 
   /** Get the flat lunge direction of the last lunge (for shield directional check) */

@@ -212,6 +212,10 @@ export class Player {
     this.wallCollider = fn
   }
 
+  setPosition(x: number, y: number, z: number) {
+    this.position.set(x, y, z)
+  }
+
   // ── Camera ────────────────────────────────────────────────────────────────
   private setupCamera() {
     const cam = new ArcRotateCamera('cam', -Math.PI / 2, 1.0, CAM_RADIUS, SPAWN.clone(), this.scene)

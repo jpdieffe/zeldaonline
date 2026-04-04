@@ -1,0 +1,1 @@
+import{_n as e}from"./index-BKpaqpBL.js";export{e as particlesVertexShaderWGSL};

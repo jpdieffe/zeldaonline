@@ -16,6 +16,7 @@ import { Network } from './network'
 import { RemotePlayer } from './remote'
 import { EnemyManager, Enemy } from './enemy'
 import { Structures } from './structures'
+import { loadLevelData } from './level'
 
 const canvas = document.getElementById('renderCanvas') as HTMLCanvasElement
 const network = new Network()
@@ -123,7 +124,7 @@ joinBtn.addEventListener('click', () => {
 let scene: Scene | null = null
 let remote: RemotePlayer | null = null
 
-function startGame(seed?: string) {
+async function startGame(seed?: string) {
   // WebGL check
   const testCanvas = document.createElement('canvas')
   testCanvas.width = 100; testCanvas.height = 100
@@ -172,12 +173,30 @@ function startGame(seed?: string) {
   groundMat.specularColor = new Color3(0.05, 0.05, 0.05)
   ground.material = groundMat
 
-  // Apply noise to vertex heights for rolling hills
+  // Try loading a custom level (from level builder)
+  const levelData = await loadLevelData()
+
+  // Apply heights: custom heightmap or procedural noise
   const positions = ground.getVerticesData(VertexBuffer.PositionKind)!
-  for (let i = 0; i < positions.length; i += 3) {
-    const x = positions[i]
-    const z = positions[i + 2]
-    positions[i + 1] = hillNoise(x, z)
+  if (levelData) {
+    const GRID = SUBDIVISIONS + 1
+    const CELL_WORLD = GROUND_SIZE / SUBDIVISIONS
+    for (let i = 0; i < positions.length; i += 3) {
+      const x = positions[i]
+      const z = positions[i + 2]
+      // Convert world coords → grid index
+      const gx = Math.round((x + GROUND_SIZE / 2) / CELL_WORLD)
+      const gz = Math.round((z + GROUND_SIZE / 2) / CELL_WORLD)
+      const cgx = Math.max(0, Math.min(GRID - 1, gx))
+      const cgz = Math.max(0, Math.min(GRID - 1, gz))
+      positions[i + 1] = levelData.heightmap[cgz]?.[cgx] ?? 0
+    }
+  } else {
+    for (let i = 0; i < positions.length; i += 3) {
+      const x = positions[i]
+      const z = positions[i + 2]
+      positions[i + 1] = hillNoise(x, z)
+    }
   }
   ground.updateVerticesData(VertexBuffer.PositionKind, positions)
   ground.createNormals(false)
@@ -187,7 +206,7 @@ function startGame(seed?: string) {
 
   // Water plane (slightly below ground)
   const water = MeshBuilder.CreateGround('water', { width: 500, height: 500 }, scene)
-  water.position.y = -0.4
+  water.position.y = levelData?.waterY ?? -0.4
   const waterMat = new StandardMaterial('waterMat', scene)
   waterMat.diffuseColor = new Color3(0.15, 0.35, 0.7)
   waterMat.specularColor = new Color3(0.3, 0.3, 0.5)
@@ -197,26 +216,101 @@ function startGame(seed?: string) {
   // Player
   const player = new Player(scene, ground)
 
-  // Structures (camps with cabins, campfires, towers)
-  const structures = new Structures(scene, ground, 6, seed)
+  // Structures + Enemies — from level data or procedural
+  const structures = new Structures(scene, ground, levelData ? 0 : 6, seed)
+
+  if (levelData) {
+    // Place structures from level data
+    let cabinId = 0, fireId = 0, towerId = 0
+    for (const obj of levelData.objects) {
+      const gy = ground.getHeightAtCoordinates(obj.wx, obj.wz) ?? 0
+      if (obj.type === 'cabin') {
+        structures.buildCabin(obj.wx, gy, obj.wz, 0, cabinId++)
+      } else if (obj.type === 'campfire') {
+        structures.buildCampfire(obj.wx, gy, obj.wz, fireId++)
+      } else if (obj.type === 'tower') {
+        structures.buildTower(obj.wx, gy, obj.wz, towerId++)
+      }
+    }
+
+    // Draw roads on terrain (flatten ground along road and tint later)
+    for (const road of levelData.roads) {
+      for (const [wx, wz] of road) {
+        // Flatten road area by smoothing neighbors toward this height
+        const roadY = ground.getHeightAtCoordinates(wx, wz) ?? 0
+        // Apply as slight flatten in the vertex buffer (already applied above)
+        void roadY // roads stored for future visual overlay
+      }
+    }
+  }
+
   player.setCollidableMeshes(structures.collidable)
   player.setWallCollider((pos) => structures.resolveCollision(pos))
 
-  // Enemies — spawn around camp centers
-  const campCenters = structures.camps.map(c => c.center)
-  const enemyMgr = new EnemyManager(scene, ground, 20, seed, campCenters)
+  // Enemies
+  let enemyMgr: EnemyManager
+  if (levelData) {
+    enemyMgr = new EnemyManager(scene, ground, 0, seed)  // empty start
+    for (const obj of levelData.objects) {
+      const gy = ground.getHeightAtCoordinates(obj.wx, obj.wz) ?? 0
+      if (obj.type === 'enemy_orc') {
+        enemyMgr.spawnAt('weak_orc', new Vector3(obj.wx, gy, obj.wz))
+      } else if (obj.type === 'enemy_goblin') {
+        enemyMgr.spawnAt('goblin', new Vector3(obj.wx, gy, obj.wz))
+      }
+    }
+    // Place goblins on tower tops from level data
+    for (const pos of structures.getTowerTopPositions()) {
+      enemyMgr.spawnAt('goblin', pos, true)
+    }
+  } else {
+    // Procedural: spawn around camp centers
+    const campCenters = structures.camps.map(c => c.center)
+    enemyMgr = new EnemyManager(scene, ground, 20, seed, campCenters)
+    // Place goblins on tower tops
+    for (const pos of structures.getTowerTopPositions()) {
+      enemyMgr.spawnAt('goblin', pos, true)
+    }
+  }
 
   // Set wall collision for all enemies
   const wallCollider = (pos: Vector3) => structures.resolveCollision(pos)
   for (const e of enemyMgr.getEnemies()) e.wallCollider = wallCollider
 
-  // Place goblins on tower tops
-  for (const pos of structures.getTowerTopPositions()) {
-    enemyMgr.spawnAt('goblin', pos, true)
+  // Move player to spawn point from level data
+  if (levelData) {
+    const spawn = levelData.objects.find(o => o.type === 'player_spawn')
+    if (spawn) {
+      const sy = (ground.getHeightAtCoordinates(spawn.wx, spawn.wz) ?? 0) + 2
+      player.setPosition(spawn.wx, sy, spawn.wz)
+    }
   }
-  // Set wall collision for tower goblins too
-  for (const e of enemyMgr.getEnemies()) {
-    if (!e.wallCollider) e.wallCollider = wallCollider
+
+  // Draw roads as brown strips on the ground
+  if (levelData) {
+    const roadMat = new StandardMaterial('roadMat', scene)
+    roadMat.diffuseColor = new Color3(0.55, 0.42, 0.25)
+    roadMat.specularColor = Color3.Black()
+    for (let ri = 0; ri < levelData.roads.length; ri++) {
+      const road = levelData.roads[ri]
+      if (road.length < 2) continue
+      // Build road segments as thin boxes lying on terrain
+      for (let j = 0; j < road.length - 1; j++) {
+        const [ax, az] = road[j]
+        const [bx, bz] = road[j + 1]
+        const ay = (ground.getHeightAtCoordinates(ax, az) ?? 0) + 0.05
+        const by = (ground.getHeightAtCoordinates(bx, bz) ?? 0) + 0.05
+        const mx = (ax + bx) / 2, mz = (az + bz) / 2, my = (ay + by) / 2
+        const len = Math.sqrt((bx - ax) ** 2 + (bz - az) ** 2)
+        if (len < 0.01) continue
+        const seg = MeshBuilder.CreateBox(`road_${ri}_${j}`, {
+          width: len, height: 0.08, depth: 2.5,
+        }, scene)
+        seg.position.set(mx, my, mz)
+        seg.rotation.y = Math.atan2(bx - ax, bz - az)
+        seg.material = roadMat
+      }
+    }
   }
 
   // Hearts HUD

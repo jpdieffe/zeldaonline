@@ -1,0 +1,1 @@
+import{vn as e}from"./index-BL2X1cq-.js";export{e as particlesPixelShaderWGSL};

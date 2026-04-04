@@ -304,9 +304,6 @@ export class Enemy {
           }
         }
       }
-      if (this.deathTimer <= 0) {
-        this.respawn()
-      }
       return { wantAttack: false }
     }
 

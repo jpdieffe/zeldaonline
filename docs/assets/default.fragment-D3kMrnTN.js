@@ -1,1 +1,0 @@
-import{Mn as e}from"./index-BAW4NCDe.js";export{e as defaultPixelShader};

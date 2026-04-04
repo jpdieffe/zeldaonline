@@ -1,0 +1,1 @@
+import{Kn as e}from"./index-BL2X1cq-.js";export{e as colorPixelShader};

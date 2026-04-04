@@ -1,0 +1,1 @@
+import{Gn as e}from"./index-Cii5liyK.js";export{e as colorVertexShader};

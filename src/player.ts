@@ -560,9 +560,9 @@ export class Player {
         this.attackLock = true
         this.rolling = true
         this.rollDir = dodgeDir.normalize()
-        const speedMul = anim === 'backflip' ? 3 : 5
-        const animSpeed = anim === 'backflip' ? 3.0 : 2.0
-        const dur = ((this.animDurations.get(anim) ?? 0.8) * 0.7) / animSpeed
+        const speedMul = anim === 'backflip' ? 3 : 10
+        const animSpeed = anim === 'backflip' ? 8.0 : 4.0
+        const dur = (this.animDurations.get(anim) ?? 0.8) / animSpeed
         this.attackLockTimer = dur
         this.velocity.x = this.rollDir.x * RUN_SPEED * speedMul
         this.velocity.z = this.rollDir.z * RUN_SPEED * speedMul
@@ -571,14 +571,7 @@ export class Player {
           this.facingY = Math.atan2(this.rollDir.x, this.rollDir.z) + Math.PI
         }
         this.isDefendingState = false
-        // Skip first half of backflip wind-up
-        if (anim === 'backflip') {
-          const ag = this.animGroups.get('backflip')
-          const mid = ag ? (ag.from + ag.to) / 2 : undefined
-          this.playAnim(anim, animSpeed, mid)
-        } else {
-          this.playAnim(anim, animSpeed)
-        }
+        this.playAnim(anim, animSpeed)
       }
     }
 

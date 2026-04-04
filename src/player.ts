@@ -469,13 +469,14 @@ export class Player {
     for (const m of this.shieldMeshes) m.isVisible = visible
   }
 
-  private playAnim(a: AnimState, speedRatio = 1.0) {
+  private playAnim(a: AnimState, speedRatio = 1.0, fromFrame?: number) {
     if (a === this.currentAnim || !this.animsLoaded) return
     const prev = this.animGroups.get(this.currentAnim)
     if (prev) prev.stop()
     const next = this.animGroups.get(a)
     if (next) {
-      next.start(next.loopAnimation, speedRatio, next.from, next.to, false)
+      const startFrame = fromFrame ?? next.from
+      next.start(next.loopAnimation, speedRatio, startFrame, next.to, false)
     }
     this.currentAnim = a
   }
@@ -570,7 +571,14 @@ export class Player {
           this.facingY = Math.atan2(this.rollDir.x, this.rollDir.z) + Math.PI
         }
         this.isDefendingState = false
-        this.playAnim(anim, animSpeed)
+        // Skip first half of backflip wind-up
+        if (anim === 'backflip') {
+          const ag = this.animGroups.get('backflip')
+          const mid = ag ? (ag.from + ag.to) / 2 : undefined
+          this.playAnim(anim, animSpeed, mid)
+        } else {
+          this.playAnim(anim, animSpeed)
+        }
       }
     }
 

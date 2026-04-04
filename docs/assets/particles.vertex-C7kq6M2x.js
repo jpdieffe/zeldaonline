@@ -1,1 +1,0 @@
-import{_n as e}from"./index-B2ffAyi2.js";export{e as particlesVertexShaderWGSL};

@@ -1,0 +1,1 @@
+import{yn as e}from"./index-BNXWAcML.js";export{e as particlesVertexShader};

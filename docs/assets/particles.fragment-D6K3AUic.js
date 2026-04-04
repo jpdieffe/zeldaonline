@@ -1,0 +1,1 @@
+import{vn as e}from"./index-BNXWAcML.js";export{e as particlesPixelShaderWGSL};

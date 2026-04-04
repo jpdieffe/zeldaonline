@@ -150,6 +150,7 @@ export class Player {
   // Sprint
   private sprinting = false
   private dashing = false
+  private dashConsumedClick = false
   private dashDir = Vector3.Zero()
   private dashStartPos = Vector3.Zero()
   private dashPhase: 'forward' | 'reverse' = 'forward'
@@ -307,7 +308,7 @@ export class Player {
       if (e.button === 2) this.mouseRight = true
     })
     canvas.addEventListener('mouseup', (e) => {
-      if (e.button === 0) this.mouseLeft = false
+      if (e.button === 0) { this.mouseLeft = false; this.dashConsumedClick = false }
       if (e.button === 2) this.mouseRight = false
     })
     canvas.addEventListener('contextmenu', (e) => e.preventDefault())
@@ -505,9 +506,10 @@ export class Player {
     this.updateTimers(dt)
 
     // ── Attack input (requires sword equipped) ───────────────────────────
-    if (this.mouseLeft && !this.attackLock && this.onGround && !this.swimming && this.swordEquipped) {
+    if (this.mouseLeft && !this.attackLock && !this.dashConsumedClick && this.onGround && !this.swimming && this.swordEquipped) {
       if (this.sprinting) {
         this.startDashAttack()
+        this.dashConsumedClick = true
       } else {
         this.startAttack()
       }

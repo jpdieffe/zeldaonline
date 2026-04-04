@@ -1,0 +1,1 @@
+import{jn as e}from"./index-BNXWAcML.js";export{e as defaultVertexShader};

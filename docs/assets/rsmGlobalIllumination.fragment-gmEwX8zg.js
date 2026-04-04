@@ -1,0 +1,1 @@
+import{Y as e}from"./index-BNXWAcML.js";export{e as rsmGlobalIlluminationPixelShader};

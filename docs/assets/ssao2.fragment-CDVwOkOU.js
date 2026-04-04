@@ -1,0 +1,1 @@
+import{un as e}from"./index-BNXWAcML.js";export{e as ssao2PixelShaderWGSL};

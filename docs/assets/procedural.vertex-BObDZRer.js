@@ -1,0 +1,1 @@
+import{Vn as e}from"./index-BNXWAcML.js";export{e as proceduralVertexShader};

@@ -1,0 +1,1 @@
+import{B as e}from"./index-BNXWAcML.js";export{e as geometryVertexShaderWGSL};

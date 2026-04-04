@@ -1,0 +1,1 @@
+import{Mn as e}from"./index-BNXWAcML.js";export{e as defaultPixelShader};

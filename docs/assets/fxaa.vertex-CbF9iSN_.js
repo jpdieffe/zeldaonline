@@ -1,0 +1,1 @@
+import{Mt as e}from"./index-BNXWAcML.js";export{e as fxaaVertexShader};

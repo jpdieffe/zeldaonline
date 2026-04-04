@@ -1,0 +1,1 @@
+import{Un as e}from"./index-BNXWAcML.js";export{e as OpenPBRMaterial};

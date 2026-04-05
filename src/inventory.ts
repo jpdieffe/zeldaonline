@@ -619,15 +619,18 @@ export class Inventory {
 
   // ── WATER / LASER beam ─────────────────────────────────────────────────
   private spawnBeam(pp: Vector3, dir: Vector3, element: SpellElement, damage: number, duration: number, width: number) {
-    const flatDir = new Vector3(dir.x, 0, dir.z)
-    if (flatDir.length() > 0.01) flatDir.normalize()
-    else flatDir.set(0, 0, 1)
+    const aimDir = dir.clone()
+    if (aimDir.length() > 0.01) aimDir.normalize()
+    else aimDir.set(0, 0, 1)
 
     const beamLength = 30
     const origin = pp.add(new Vector3(0, 1.2, 0))
     const meshes: AbstractMesh[] = []
     const segCount = 10
     const segLen = beamLength / segCount
+
+    const yaw = Math.atan2(aimDir.x, aimDir.z)
+    const pitch = -Math.asin(aimDir.y)
 
     for (let i = 0; i < segCount; i++) {
       const seg = MeshBuilder.CreateCylinder(`beam_${i}`, {
@@ -641,14 +644,14 @@ export class Inventory {
       }
       mat.disableLighting = true
       seg.material = mat
-      const center = origin.add(flatDir.scale(segLen * (i + 0.5)))
+      const center = origin.add(aimDir.scale(segLen * (i + 0.5)))
       seg.position = center
-      seg.rotation.x = Math.PI / 2
-      seg.rotation.y = Math.atan2(flatDir.x, flatDir.z)
+      seg.rotation.x = Math.PI / 2 + pitch
+      seg.rotation.y = yaw
       meshes.push(seg)
     }
 
-    this.beams.push({ meshes, direction: flatDir, origin, element, damage, lifetime: duration, tickTimer: 0 })
+    this.beams.push({ meshes, direction: aimDir, origin, element, damage, lifetime: duration, tickTimer: 0 })
   }
 
   // ── ROCK: rolling boulder ──────────────────────────────────────────────
@@ -954,20 +957,18 @@ export class Inventory {
       const newOrigin = (this.getPlayerPos?.() ?? Vector3.Zero()).add(new Vector3(0, 1.2, 0))
       beam.origin = newOrigin
 
-      // Track camera forward direction (flattened to XZ)
+      // Track camera forward direction (full 3D aim)
       const fwd = this.getCameraForward?.() ?? beam.direction
-      const flat = new Vector3(fwd.x, 0, fwd.z)
-      const len = flat.length()
-      if (len > 0.001) {
-        flat.scaleInPlace(1 / len)
-        beam.direction = flat
+      if (fwd.length() > 0.001) {
+        beam.direction = fwd.normalize()
       }
 
       const segLen = 30 / beam.meshes.length
       const yaw = Math.atan2(beam.direction.x, beam.direction.z)
+      const pitch = -Math.asin(beam.direction.y)
       for (let s = 0; s < beam.meshes.length; s++) {
         beam.meshes[s].position = newOrigin.add(beam.direction.scale(segLen * (s + 0.5)))
-        beam.meshes[s].rotation.x = Math.PI / 2
+        beam.meshes[s].rotation.x = Math.PI / 2 + pitch
         beam.meshes[s].rotation.y = yaw
       }
 
@@ -976,7 +977,7 @@ export class Inventory {
         if (this.onGetEnemies) {
           for (const e of this.onGetEnemies()) {
             if (e.isDead()) continue
-            const toE = e.getPosition().subtract(beam.origin); toE.y = 0
+            const toE = e.getPosition().subtract(beam.origin)
             const proj = Vector3.Dot(toE, beam.direction)
             if (proj < 0 || proj > 30) continue
             const closestPt = beam.origin.add(beam.direction.scale(proj))

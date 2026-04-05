@@ -227,7 +227,7 @@ export class Player {
     const cam = new ArcRotateCamera('cam', -Math.PI / 2, 1.0, CAM_RADIUS, SPAWN.clone(), this.scene)
     cam.lowerRadiusLimit  = CAM_MIN_RADIUS
     cam.upperRadiusLimit  = CAM_MAX_RADIUS
-    cam.lowerBetaLimit    = 0.05              // allow looking nearly straight up
+    cam.lowerBetaLimit    = 0.01              // allow looking nearly straight up
     cam.upperBetaLimit    = Math.PI * 0.48   // don't let camera go underground
 
     cam.panningSensibility = 0

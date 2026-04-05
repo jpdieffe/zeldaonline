@@ -1,0 +1,1 @@
+import{yn as e}from"./index-B4D8ohdG.js";export{e as particlesVertexShader};

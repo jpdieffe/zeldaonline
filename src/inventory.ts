@@ -133,6 +133,7 @@ export class Inventory {
   private quickSlots: (string | null)[] = [null, null, null, null]
   private quickSlotAssignMode: number | null = null  // which quick slot # is awaiting click
   private quickSlotBar: HTMLDivElement | null = null
+  private targetingQuickSlot: number | null = null  // which quick slot is being aimed
 
   constructor(scene: Scene, ground: GroundMesh) {
     this.scene = scene
@@ -256,8 +257,10 @@ export class Inventory {
       } else {
         emoji.textContent = ''
       }
-      // Highlight if in assign mode
-      const border = this.quickSlotAssignMode === i ? '#ff4' : '#556'
+      // Highlight if in assign mode or actively targeting from this slot
+      let border = '#556'
+      if (this.quickSlotAssignMode === i) border = '#ff4'
+      else if (this.targetingQuickSlot === i) border = '#0f0'
       ;(el as HTMLElement).style.borderColor = border
     })
   }
@@ -460,8 +463,8 @@ export class Inventory {
         this.removeFromSlot(slotIdx)
         this.renderQuickSlots()
       } else if (def.scrollMode === 'target') {
+        this.targetingQuickSlot = qsIdx
         this.startTargeting(def.id)
-        this.removeFromSlot(slotIdx)
         this.renderQuickSlots()
       }
     }
@@ -547,7 +550,9 @@ export class Inventory {
   cancelTargeting() {
     this.targeting = false
     this.targetScrollId = null
+    this.targetingQuickSlot = null
     if (this.crosshair) this.crosshair.style.display = 'none'
+    this.renderQuickSlots()
   }
 
   private fireSpell() {
@@ -567,9 +572,17 @@ export class Inventory {
       case 'laser':    this.spawnBeam(pp, camFwd, 'laser', def.spellDamage ?? 8, 5, 1.2); break
     }
 
+    // Consume the item now that we've actually fired
+    if (this.targetingQuickSlot !== null) {
+      const slotIdx = this.slots.findIndex(s => s.itemId === this.targetScrollId)
+      if (slotIdx >= 0) this.removeFromSlot(slotIdx)
+      this.targetingQuickSlot = null
+    }
+
     this.targeting = false
     this.targetScrollId = null
     if (this.crosshair) this.crosshair.style.display = 'none'
+    this.renderQuickSlots()
   }
 
   // ── FIRE: projectile that explodes on contact ──────────────────────────

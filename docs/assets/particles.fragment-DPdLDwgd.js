@@ -1,1 +1,0 @@
-import{vn as e}from"./index-C52elq-K.js";export{e as particlesPixelShaderWGSL};

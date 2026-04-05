@@ -724,15 +724,44 @@ export class Player {
     const headY = this.position.y + PLAYER_HEIGHT * 0.8
     this.camera.target.set(this.position.x, headY, this.position.z)
 
-    // When looking up (low beta), pull camera closer so it doesn't clip underground
+    // Keep camera above terrain — when looking up the camera swings low
+    const cam = this.camera
+    const alpha = cam.alpha
+    const beta = cam.beta
+    const sinB = Math.sin(beta)
+    const cosB = Math.cos(beta)
+    const cosA = Math.cos(alpha)
+    const sinA = Math.sin(alpha)
+
+    // Compute where camera would be at current radius
+    let r = cam.radius
+    const camX = this.position.x + r * sinB * cosA
+    const camZ = this.position.z + r * sinB * sinA
+    const camY = headY + r * cosB
+    const terrainY = this.getGroundY(camX, camZ) + 0.5
+
+    if (camY < terrainY) {
+      // Binary search for the largest radius that keeps camera above terrain
+      let lo = CAM_MIN_RADIUS, hi = r
+      for (let iter = 0; iter < 8; iter++) {
+        const mid = (lo + hi) / 2
+        const cx = this.position.x + mid * sinB * cosA
+        const cz = this.position.z + mid * sinB * sinA
+        const cy = headY + mid * cosB
+        const gy = this.getGroundY(cx, cz) + 0.5
+        if (cy < gy) hi = mid; else lo = mid
+      }
+      cam.radius = lo
+    }
+
+    // When looking down (low beta, bird's eye), pull camera closer
     const LOOK_UP_THRESHOLD = 0.6  // beta below this starts pulling in
-    const beta = this.camera.beta
     if (beta < LOOK_UP_THRESHOLD) {
       const t = beta / LOOK_UP_THRESHOLD   // 0 = straight up, 1 = threshold
-      const maxR = this.camera.radius
+      const maxR = cam.radius
       const closeR = CAM_MIN_RADIUS + 1
       const desired = closeR + (maxR - closeR) * t
-      if (this.camera.radius > desired) this.camera.radius = desired
+      if (cam.radius > desired) cam.radius = desired
     }
   }
 

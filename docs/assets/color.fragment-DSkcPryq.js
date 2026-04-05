@@ -1,0 +1,1 @@
+import{Kn as e}from"./index-Iz_bFFeF.js";export{e as colorPixelShader};

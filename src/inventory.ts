@@ -1,7 +1,8 @@
 import {
   Scene, Vector3, MeshBuilder, StandardMaterial, Color3,
-  AbstractMesh, GroundMesh,
+  AbstractMesh, GroundMesh, TransformNode, SceneLoader,
 } from '@babylonjs/core'
+import '@babylonjs/loaders/glTF'
 import { type ItemDef, getItem, ALL_ITEMS, type SpellElement } from './items'
 
 // ── Inventory Item Instance ──────────────────────────────────────────────────
@@ -119,7 +120,8 @@ export class Inventory {
 
   // Summon goblin
   private summonMeshes: AbstractMesh[] = []
-  private summonPivot: AbstractMesh | null = null
+  private summonPivot: TransformNode | null = null
+  private summonAnimGroups: import('@babylonjs/core').AnimationGroup[] = []
 
   constructor(scene: Scene, ground: GroundMesh) {
     this.scene = scene
@@ -351,38 +353,68 @@ export class Inventory {
 
   getBuffs(): ActiveBuff[] { return this.buffs }
 
-  // ── Summon: blue-tinted goblin follower ─────────────────────────────────
-  private spawnSummon() {
+  // ── Summon: blue-tinted goblin follower (loads goblin.glb) ────────────
+  private async spawnSummon() {
     this.disposeSummon()
     const pp = this.getPlayerPos?.() ?? Vector3.Zero()
-    const bodyMat = new StandardMaterial('summonMat', this.scene)
-    bodyMat.diffuseColor = new Color3(0.3, 0.5, 1.0)
-    bodyMat.emissiveColor = new Color3(0.1, 0.15, 0.4)
-    bodyMat.alpha = 0.85
 
-    const body = MeshBuilder.CreateCapsule('summonBody', { height: 1.6, radius: 0.35 }, this.scene)
-    body.material = bodyMat
-    body.position = pp.add(new Vector3(3, 0.8, 0))
+    try {
+      const result = await SceneLoader.ImportMeshAsync('', './assets/bad_guys/goblin/', 'goblin.glb', this.scene)
+      const pivot = new TransformNode('summonPivot', this.scene)
+      pivot.position = pp.add(new Vector3(3, 0, 0))
 
-    const head = MeshBuilder.CreateSphere('summonHead', { diameter: 0.55 }, this.scene)
-    head.material = bodyMat
-    head.parent = body
-    head.position.y = 1.0
+      const root = result.meshes[0] as unknown as TransformNode
+      root.parent = pivot
+      root.scaling.setAll(2.0)
 
-    const earL = MeshBuilder.CreateCylinder('summonEarL', { height: 0.3, diameterTop: 0, diameterBottom: 0.15 }, this.scene)
-    earL.material = bodyMat; earL.parent = head; earL.position.set(-0.25, 0.15, 0); earL.rotation.z = -0.5
+      const meshes = result.meshes.filter(m => m !== result.meshes[0])
+      // Apply blue tint to all meshes
+      for (const m of meshes) {
+        if (m.material) {
+          const mat = m.material.clone(m.material.name + '_summon')
+          if (mat && 'emissiveColor' in mat) {
+            ;(mat as any).emissiveColor = new Color3(0.15, 0.2, 0.6)
+          }
+          if (mat && 'albedoColor' in mat) {
+            ;(mat as any).albedoColor = new Color3(0.4, 0.5, 1.0)
+          }
+          m.material = mat
+        }
+      }
 
-    const earR = MeshBuilder.CreateCylinder('summonEarR', { height: 0.3, diameterTop: 0, diameterBottom: 0.15 }, this.scene)
-    earR.material = bodyMat; earR.parent = head; earR.position.set(0.25, 0.15, 0); earR.rotation.z = 0.5
+      this.summonPivot = pivot
+      this.summonMeshes = meshes as AbstractMesh[]
+      this.summonAnimGroups = result.animationGroups
 
-    this.summonPivot = body
-    this.summonMeshes = [body, head, earL, earR]
+      // Play walk animation by default
+      for (const ag of result.animationGroups) ag.stop()
+      const walkAnim = result.animationGroups.find(g => g.name === 'Zombie_Walk_Fwd_Loop')
+      const idleAnim = result.animationGroups.find(g => g.name === 'Zombie_Idle_Loop')
+      ;(walkAnim ?? idleAnim)?.start(true)
+    } catch (e) {
+      console.warn('Failed to load summon goblin:', e)
+      // Fallback: simple blue sphere
+      const mesh = MeshBuilder.CreateSphere('summonFallback', { diameter: 1.2 }, this.scene)
+      const mat = new StandardMaterial('summonFBMat', this.scene)
+      mat.emissiveColor = new Color3(0.2, 0.3, 0.8)
+      mat.alpha = 0.8
+      mesh.material = mat
+      mesh.position = pp.add(new Vector3(3, 0.8, 0))
+      const pivot = new TransformNode('summonPivot', this.scene)
+      mesh.parent = pivot
+      pivot.position.copyFrom(mesh.position)
+      mesh.position.set(0, 0, 0)
+      this.summonPivot = pivot
+      this.summonMeshes = [mesh]
+    }
   }
 
   private disposeSummon() {
+    for (const ag of this.summonAnimGroups) ag.dispose()
+    this.summonAnimGroups = []
     for (const m of this.summonMeshes) m.dispose()
     this.summonMeshes = []
-    this.summonPivot = null
+    if (this.summonPivot) { this.summonPivot.dispose(); this.summonPivot = null }
   }
 
   // ── Target Scrolls ─────────────────────────────────────────────────────
@@ -655,7 +687,10 @@ export class Inventory {
       if (nearest) {
         const dir = nearest.getPosition().subtract(this.summonPivot.position)
         dir.y = 0
-        if (dir.length() > 0.1) dir.normalize()
+        if (dir.length() > 0.1) {
+          dir.normalize()
+          this.summonPivot.rotation.y = Math.atan2(dir.x, dir.z)
+        }
         this.summonPivot.position.addInPlace(dir.scale(dt * 6))
         if (nearDist < 2) nearest.takeDamage(1)
       } else {
@@ -663,11 +698,12 @@ export class Inventory {
         toPlayer.y = 0
         if (toPlayer.length() > 3) {
           toPlayer.normalize()
+          this.summonPivot.rotation.y = Math.atan2(toPlayer.x, toPlayer.z)
           this.summonPivot.position.addInPlace(toPlayer.scale(dt * 5))
         }
       }
       const sy = this.ground.getHeightAtCoordinates(this.summonPivot.position.x, this.summonPivot.position.z) ?? 0
-      this.summonPivot.position.y = sy + 0.8
+      this.summonPivot.position.y = sy
     }
 
     // Update fire projectiles

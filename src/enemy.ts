@@ -382,13 +382,18 @@ export class Enemy {
       }
     }
 
+    // For ranged enemies, use raw attackRange (not scaled) so they actually chase into firing range
+    const effectiveRange = this.typeDef.isRanged
+      ? this.typeDef.attackRange
+      : this.typeDef.attackRange * this.scale
+
     if (this.state === 'chase') {
       if (this.platformY != null) {
         // Platform enemies don't chase — attack from position
-        this.state = dist < this.typeDef.attackRange * this.scale ? 'attack' : 'idle'
+        this.state = dist < effectiveRange ? 'attack' : 'idle'
       } else if (dist > DEAGGRO_RANGE) {
         this.state = 'idle'
-      } else if (dist < this.typeDef.attackRange * this.scale) {
+      } else if (dist < effectiveRange) {
         this.state = 'attack'
       } else {
         const dir = toPlayer.normalize()
@@ -402,7 +407,7 @@ export class Enemy {
     }
 
     if (this.state === 'attack') {
-      if (dist > this.typeDef.attackRange * this.scale * 1.5) {
+      if (dist > effectiveRange * 1.5) {
         this.state = 'chase'
       } else {
         if (this.attackCooldown <= 0) {

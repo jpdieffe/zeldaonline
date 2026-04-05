@@ -269,14 +269,6 @@ export class Player {
     window.addEventListener('keydown', (e) => {
       this.keys.add(e.key.toLowerCase())
       if (e.key.toLowerCase() === 'shift') this.sprinting = true
-      if (e.key === '1' && !this.swordEquipped) {
-        this.swordEquipped = true
-        this.setSwordVisible(true)
-      }
-      if (e.key === '2' && this.swordEquipped) {
-        this.swordEquipped = false
-        this.setSwordVisible(false)
-      }
       if (e.key.toLowerCase() === 'r' && this.swordEquipped && !this.thrownActive) {
         this.throwSword()
       }
@@ -285,27 +277,12 @@ export class Player {
         this.debugDefend = false
         const panel = document.getElementById('debugPanel') as HTMLElement | null
         if (panel) panel.style.display = this.debugMode ? 'block' : 'none'
-        if (this.debugMode) {
-          this.shieldEquipped = true
-          this.setShieldVisible(true)
-        }
       }
       if (e.key.toLowerCase() === 'y') {
         this.debugMode = !this.debugMode
         this.debugDefend = this.debugMode
         const panel = document.getElementById('debugPanel') as HTMLElement | null
         if (panel) panel.style.display = this.debugMode ? 'block' : 'none'
-        if (this.debugMode) {
-          this.shieldEquipped = true
-          this.setShieldVisible(true)
-        }
-      }
-      if (e.key === '3' && this.animsLoaded) {
-        this.switchSkin((this.skinIndex + 1) % this.skinNames.length)
-      }
-      if (e.key === '4') {
-        this.shieldEquipped = !this.shieldEquipped
-        this.setShieldVisible(this.shieldEquipped)
       }
     })
     window.addEventListener('keyup', (e) => {

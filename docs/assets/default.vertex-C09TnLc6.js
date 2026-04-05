@@ -1,1 +1,0 @@
-import{jn as e}from"./index-DptVzq0N.js";export{e as defaultVertexShader};

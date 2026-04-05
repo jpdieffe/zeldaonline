@@ -1,1 +1,0 @@
-import{_n as e}from"./index-DptVzq0N.js";export{e as particlesVertexShaderWGSL};

@@ -954,7 +954,8 @@ export class Inventory {
       const yaw = Math.atan2(beam.direction.x, beam.direction.z)
       for (let s = 0; s < beam.meshes.length; s++) {
         beam.meshes[s].position = newOrigin.add(beam.direction.scale(segLen * (s + 0.5)))
-        beam.meshes[s].rotation.y = yaw + Math.PI / 2
+        beam.meshes[s].rotation.x = Math.PI / 2
+        beam.meshes[s].rotation.y = yaw
       }
 
       if (beam.tickTimer <= 0) {

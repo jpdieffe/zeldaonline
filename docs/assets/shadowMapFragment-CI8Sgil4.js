@@ -1,0 +1,1 @@
+import{fr as e}from"./index-DA8sth4d.js";export{e as shadowMapFragmentWGSL};

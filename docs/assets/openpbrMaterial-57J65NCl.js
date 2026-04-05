@@ -1,1 +1,0 @@
-import{Un as e}from"./index-Dc9pGRnc.js";export{e as OpenPBRMaterial};

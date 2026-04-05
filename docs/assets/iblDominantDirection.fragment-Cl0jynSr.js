@@ -1,1 +1,0 @@
-import{g as e}from"./index-Dc9pGRnc.js";export{e as iblDominantDirectionPixelShader};

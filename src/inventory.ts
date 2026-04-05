@@ -237,7 +237,7 @@ export class Inventory {
         'align-items:center', 'justify-content:center',
         'position:relative', 'pointer-events:auto', 'cursor:default',
       ].join(';')
-      slot.innerHTML = `<span style="position:absolute;top:2px;left:5px;font-size:10px;color:#aab">${i + 1}</span><span class="qs-emoji" style="font-size:24px"></span>`
+      slot.innerHTML = `<span style="position:absolute;top:2px;left:5px;font-size:10px;color:#aab">${i + 1}</span><span class="qs-emoji" style="font-size:24px"></span><span class="qs-count" style="position:absolute;bottom:1px;right:3px;font-size:10px;color:#cde;text-shadow:0 0 2px #000"></span>`
       bar.appendChild(slot)
     }
     document.body.appendChild(bar)
@@ -250,12 +250,17 @@ export class Inventory {
     const slots = this.quickSlotBar.querySelectorAll('.qs')
     slots.forEach((el, i) => {
       const emoji = el.querySelector('.qs-emoji') as HTMLSpanElement
+      const countEl = el.querySelector('.qs-count') as HTMLSpanElement
       const itemId = this.quickSlots[i]
       if (itemId) {
         const def = getItem(itemId)
         emoji.textContent = def?.emoji ?? ''
+        const slot = this.slots.find(s => s.itemId === itemId)
+        const count = slot?.count ?? 0
+        countEl.textContent = count > 1 ? String(count) : ''
       } else {
         emoji.textContent = ''
+        countEl.textContent = ''
       }
       // Highlight if in assign mode or actively targeting from this slot
       let border = '#556'

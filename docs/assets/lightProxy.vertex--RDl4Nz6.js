@@ -1,1 +1,0 @@
-import{$n as e}from"./index-Dc9pGRnc.js";export{e as lightProxyVertexShader};

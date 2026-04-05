@@ -1,6 +1,7 @@
 import {
   Scene, Vector3, MeshBuilder, StandardMaterial, Color3,
   AbstractMesh, GroundMesh, TransformNode, SceneLoader,
+  DynamicTexture, Mesh,
 } from '@babylonjs/core'
 import '@babylonjs/loaders/glTF'
 import { type ItemDef, getItem, ALL_ITEMS, type SpellElement } from './items'
@@ -123,11 +124,20 @@ export class Inventory {
   private summonPivot: TransformNode | null = null
   private summonAnimGroups: import('@babylonjs/core').AnimationGroup[] = []
 
+  // Camera sensitivity multiplier (lowered while beam is active)
+  cameraSensMultiplier = 1.0
+
+  // Quick slots
+  private quickSlots: (string | null)[] = [null, null, null, null]
+  private quickSlotAssignMode: number | null = null  // which quick slot # is awaiting click
+  private quickSlotBar: HTMLDivElement | null = null
+
   constructor(scene: Scene, ground: GroundMesh) {
     this.scene = scene
     this.ground = ground
     this.buildUI()
     this.buildCrosshair()
+    this.buildQuickSlotBar()
     this.setupInput()
   }
 
@@ -205,10 +215,68 @@ export class Inventory {
     this.crosshair = ch
   }
 
+  private buildQuickSlotBar() {
+    const bar = document.createElement('div')
+    bar.id = 'quickSlotBar'
+    bar.style.cssText = [
+      'position:fixed', 'top:12px', 'left:50%', 'transform:translateX(-50%)',
+      'display:flex', 'gap:6px', 'z-index:50', 'pointer-events:none',
+      'font:14px/1 system-ui,sans-serif', 'user-select:none',
+    ].join(';')
+    for (let i = 0; i < 4; i++) {
+      const slot = document.createElement('div')
+      slot.className = 'qs'
+      slot.dataset.qs = String(i)
+      slot.style.cssText = [
+        'width:48px', 'height:48px',
+        'background:rgba(0,10,30,0.75)', 'border:2px solid #556',
+        'border-radius:8px', 'display:flex', 'flex-direction:column',
+        'align-items:center', 'justify-content:center',
+        'position:relative', 'pointer-events:auto', 'cursor:default',
+      ].join(';')
+      slot.innerHTML = `<span style="position:absolute;top:2px;left:5px;font-size:10px;color:#aab">${i + 1}</span><span class="qs-emoji" style="font-size:24px"></span>`
+      bar.appendChild(slot)
+    }
+    document.body.appendChild(bar)
+    this.quickSlotBar = bar
+    this.renderQuickSlots()
+  }
+
+  private renderQuickSlots() {
+    if (!this.quickSlotBar) return
+    const slots = this.quickSlotBar.querySelectorAll('.qs')
+    slots.forEach((el, i) => {
+      const emoji = el.querySelector('.qs-emoji') as HTMLSpanElement
+      const itemId = this.quickSlots[i]
+      if (itemId) {
+        const def = getItem(itemId)
+        emoji.textContent = def?.emoji ?? ''
+      } else {
+        emoji.textContent = ''
+      }
+      // Highlight if in assign mode
+      const border = this.quickSlotAssignMode === i ? '#ff4' : '#556'
+      ;(el as HTMLElement).style.borderColor = border
+    })
+  }
+
   private setupInput() {
     window.addEventListener('keydown', (e) => {
       if (e.key.toLowerCase() === 'i') this.toggle()
       if (e.key === 'Escape' && this.targeting) this.cancelTargeting()
+
+      // Quick slot assign mode (while inventory is open)
+      if (this.isOpen && e.key >= '1' && e.key <= '4') {
+        const qsIdx = parseInt(e.key) - 1
+        this.quickSlotAssignMode = this.quickSlotAssignMode === qsIdx ? null : qsIdx
+        this.renderQuickSlots()
+        return
+      }
+
+      // Quick slot use (while inventory is closed)
+      if (!this.isOpen && e.key >= '1' && e.key <= '4') {
+        this.useQuickSlot(parseInt(e.key) - 1)
+      }
     })
     const canvas = this.scene.getEngine().getRenderingCanvas()!
     canvas.addEventListener('mousedown', (e) => {
@@ -220,19 +288,29 @@ export class Inventory {
     this.isOpen = !this.isOpen
     if (this.uiRoot) this.uiRoot.style.display = this.isOpen ? 'block' : 'none'
     if (this.isOpen) {
+      this.quickSlotAssignMode = null
+      this.renderQuickSlots()
       this.renderInventory()
       document.exitPointerLock()
     } else {
+      this.quickSlotAssignMode = null
+      this.renderQuickSlots()
       this.hideTooltip()
     }
   }
 
   isInventoryOpen(): boolean { return this.isOpen }
   isTargeting(): boolean { return this.targeting }
+  hasActiveBeam(): boolean { return this.beams.length > 0 }
 
   private renderInventory() {
     if (!this.uiRoot) return
     let html = '<div style="text-align:center;margin-bottom:8px;font-size:16px;font-weight:bold">\uD83D\uDCE6 Inventory</div>'
+    if (this.quickSlotAssignMode !== null) {
+      html += `<div style="text-align:center;margin-bottom:6px;font-size:12px;color:#ff4">Click an item to assign to slot ${this.quickSlotAssignMode + 1}</div>`
+    } else {
+      html += '<div style="text-align:center;margin-bottom:6px;font-size:11px;color:#889">Press 1\u20134 then click item to assign quick slot</div>'
+    }
     html += '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">'
     for (let i = 0; i < this.maxSlots; i++) {
       const slot = this.slots[i]
@@ -304,6 +382,16 @@ export class Inventory {
   private useItem(idx: number) {
     const slot = this.slots[idx]
     if (!slot) return
+
+    // Quick slot assignment mode: assign this item to the selected quick slot
+    if (this.quickSlotAssignMode !== null) {
+      this.quickSlots[this.quickSlotAssignMode] = slot.itemId
+      this.quickSlotAssignMode = null
+      this.renderQuickSlots()
+      this.renderInventory()
+      return
+    }
+
     const def = getItem(slot.itemId)
     if (!def) return
 
@@ -335,6 +423,36 @@ export class Inventory {
     if (!slot) return
     slot.count--
     if (slot.count <= 0) this.slots.splice(idx, 1)
+  }
+
+  private useQuickSlot(qsIdx: number) {
+    const itemId = this.quickSlots[qsIdx]
+    if (!itemId) return
+    const slotIdx = this.slots.findIndex(s => s.itemId === itemId)
+    if (slotIdx < 0) return  // no longer in inventory
+    const def = getItem(itemId)
+    if (!def) return
+
+    if (def.category === 'food' || def.category === 'potion') {
+      const hp = this.getPlayerHealth?.() ?? 0
+      const max = this.getPlayerMaxHealth?.() ?? 6
+      if (hp >= max) return
+      if (def.healAmount && this.onHeal) {
+        this.onHeal(def.healAmount)
+        this.removeFromSlot(slotIdx)
+        this.renderQuickSlots()
+      }
+    } else if (def.category === 'scroll') {
+      if (def.scrollMode === 'instant') {
+        this.applyInstantScroll(def)
+        this.removeFromSlot(slotIdx)
+        this.renderQuickSlots()
+      } else if (def.scrollMode === 'target') {
+        this.startTargeting(def.id)
+        this.removeFromSlot(slotIdx)
+        this.renderQuickSlots()
+      }
+    }
   }
 
   // ── Instant Scrolls ────────────────────────────────────────────────────
@@ -621,13 +739,26 @@ export class Inventory {
     const def = getItem(itemId)
     if (!def) return
 
-    const mesh = MeshBuilder.CreateSphere(`gi_${itemId}_${Date.now()}`, { diameter: 0.5 }, this.scene)
+    // Create a plane with dynamic texture showing the emoji
+    const mesh = MeshBuilder.CreatePlane(`gi_${itemId}_${Date.now()}`, { size: 1.0 }, this.scene) as Mesh
+    const dtex = new DynamicTexture(`giTex_${mesh.name}`, 64, this.scene, false)
+    dtex.hasAlpha = true
+    const ctx = dtex.getContext()
+    ctx.clearRect(0, 0, 64, 64)
+    ctx.font = '48px serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(def.emoji, 32, 36)
+    dtex.update()
+
     const mat = new StandardMaterial(`giMat_${mesh.name}`, this.scene)
-    if (def.category === 'food') mat.emissiveColor = new Color3(0.2, 0.8, 0.2)
-    else if (def.category === 'potion') mat.emissiveColor = new Color3(0.4, 0.2, 0.9)
-    else mat.emissiveColor = new Color3(0.9, 0.7, 0.1)
-    mat.disableLighting = true; mat.alpha = 0.85
+    mat.diffuseTexture = dtex
+    mat.emissiveColor = new Color3(1, 1, 1)
+    mat.disableLighting = true
+    mat.useAlphaFromDiffuseTexture = true
+    mat.backFaceCulling = false
     mesh.material = mat
+    mesh.billboardMode = Mesh.BILLBOARDMODE_ALL
 
     const gy = this.ground.getHeightAtCoordinates(worldPos.x, worldPos.z) ?? 0
     mesh.position.set(worldPos.x, gy + 1.0, worldPos.z)
@@ -762,16 +893,29 @@ export class Inventory {
       }
     }
 
-    // Update beams (water / laser)
+    // Update beams (water / laser) — beam follows camera aim
+    this.cameraSensMultiplier = this.beams.length > 0 ? 0.5 : 1.0
     for (let i = this.beams.length - 1; i >= 0; i--) {
       const beam = this.beams[i]
       beam.lifetime -= dt; beam.tickTimer -= dt
       const newOrigin = (this.getPlayerPos?.() ?? Vector3.Zero()).add(new Vector3(0, 1.2, 0))
+      beam.origin = newOrigin
+
+      // Track camera forward direction (flattened to XZ)
+      const fwd = this.getCameraForward?.() ?? beam.direction
+      const flat = new Vector3(fwd.x, 0, fwd.z)
+      const len = flat.length()
+      if (len > 0.001) {
+        flat.scaleInPlace(1 / len)
+        beam.direction = flat
+      }
+
       const segLen = 30 / beam.meshes.length
+      const yaw = Math.atan2(beam.direction.x, beam.direction.z)
       for (let s = 0; s < beam.meshes.length; s++) {
         beam.meshes[s].position = newOrigin.add(beam.direction.scale(segLen * (s + 0.5)))
+        beam.meshes[s].rotation.y = yaw + Math.PI / 2
       }
-      beam.origin = newOrigin
 
       if (beam.tickTimer <= 0) {
         beam.tickTimer = 0.3

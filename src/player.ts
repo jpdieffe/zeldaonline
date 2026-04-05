@@ -170,6 +170,9 @@ export class Player {
   private damageFlashTimer = 0
   private knockbackTimer = 0
 
+  // External sensitivity multiplier (e.g. from inventory beam)
+  sensMultiplierFn: (() => number) | null = null
+
   constructor(scene: Scene, ground: GroundMesh) {
     this.scene = scene
     this.ground = ground
@@ -244,7 +247,7 @@ export class Player {
 
     document.addEventListener('mousemove', (e) => {
       if (document.pointerLockElement !== canvas) return
-      const sens = 0.004
+      const sens = 0.004 * (this.sensMultiplierFn?.() ?? 1)
       cam.alpha -= e.movementX * sens
       cam.beta  -= e.movementY * sens
       const bLo = cam.lowerBetaLimit ?? 0.15

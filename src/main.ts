@@ -384,6 +384,7 @@ async function startGame(seed?: string) {
     },
   })
   const debugMenu = new DebugItemMenu(inventory)
+  player.sensMultiplierFn = () => inventory.cameraSensMultiplier
 
   // Track enemy deaths for loot drops
   const enemyWasDead = new Set<Enemy>()

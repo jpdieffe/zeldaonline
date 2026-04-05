@@ -1088,8 +1088,7 @@ export class Player {
     const meshes = this.skinMeshSets[this.skinIndex]
     if (!meshes) return
     for (const m of meshes) {
-      if (!m.material) continue
-      ;(m.material as any).alpha = on ? 0.3 : 1.0
+      m.visibility = on ? 0.3 : 1.0
     }
   }
 

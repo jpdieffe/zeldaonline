@@ -316,6 +316,32 @@ export class Enemy {
     this.attackCooldown -= dt
 
     // Find nearest player
+    if (playerPositions.length === 0) {
+      // No visible players — revert to idle/wander
+      if (this.state === 'chase' || this.state === 'attack') this.state = 'idle'
+      this.wanderTimer -= dt
+      if (this.wanderTimer <= 0) {
+        this.wanderTimer = rand(2, 5)
+        const angle = Math.random() * Math.PI * 2
+        this.wanderDir = new Vector3(Math.sin(angle), 0, Math.cos(angle))
+      }
+      if (this.platformY == null) {
+        const wanderStep = this.wanderDir.scale(this.speed * 0.3 * dt)
+        const nextY = this.getGroundY(this.position.x + wanderStep.x, this.position.z + wanderStep.z)
+        if (nextY > WATER_Y) this.position.addInPlace(wanderStep)
+        else this.wanderTimer = 0
+        this.playAnim('walk')
+      } else {
+        this.playAnim('idle')
+      }
+      for (const entry of Object.values(this.entries)) {
+        if (!entry) continue
+        entry.pivot.position.copyFrom(this.position)
+        entry.pivot.rotation.y = this.facingY
+      }
+      return { wantAttack: false }
+    }
+
     let nearestPos = playerPositions[0]
     let nearestDistSq = Infinity
     for (const pp of playerPositions) {

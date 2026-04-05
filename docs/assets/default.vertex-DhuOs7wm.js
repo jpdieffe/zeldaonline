@@ -1,1 +1,0 @@
-import{jn as e}from"./index-CXAkpDx2.js";export{e as defaultVertexShader};

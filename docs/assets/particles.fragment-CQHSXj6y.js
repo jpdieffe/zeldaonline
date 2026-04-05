@@ -1,1 +1,0 @@
-import{bn as e}from"./index-CXAkpDx2.js";export{e as particlesPixelShader};

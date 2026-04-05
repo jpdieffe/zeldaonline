@@ -1,1 +1,0 @@
-import{d as e}from"./index-CXAkpDx2.js";export{e as spritesPixelShaderWGSL};

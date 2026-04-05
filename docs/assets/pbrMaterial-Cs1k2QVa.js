@@ -1,1 +1,0 @@
-import{jr as e}from"./index-CXAkpDx2.js";export{e as PBRMaterial};

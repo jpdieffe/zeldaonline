@@ -123,6 +123,8 @@ export class Inventory {
   private summonMeshes: AbstractMesh[] = []
   private summonPivot: TransformNode | null = null
   private summonAnimGroups: import('@babylonjs/core').AnimationGroup[] = []
+  private summonAttackTimer = 0
+  private summonProjectiles: { mesh: AbstractMesh; velocity: Vector3; lifetime: number; damage: number }[] = []
 
   // Camera sensitivity multiplier (lowered while beam is active)
   cameraSensMultiplier = 1.0
@@ -422,7 +424,17 @@ export class Inventory {
     const slot = this.slots[idx]
     if (!slot) return
     slot.count--
-    if (slot.count <= 0) this.slots.splice(idx, 1)
+    if (slot.count <= 0) {
+      const removedId = slot.itemId
+      this.slots.splice(idx, 1)
+      // Clear quick slots that reference an item no longer in inventory
+      if (!this.slots.some(s => s.itemId === removedId)) {
+        for (let i = 0; i < this.quickSlots.length; i++) {
+          if (this.quickSlots[i] === removedId) this.quickSlots[i] = null
+        }
+        this.renderQuickSlots()
+      }
+    }
   }
 
   private useQuickSlot(qsIdx: number) {
@@ -486,19 +498,6 @@ export class Inventory {
       root.scaling.setAll(2.0)
 
       const meshes = result.meshes.filter(m => m !== result.meshes[0])
-      // Apply blue tint to all meshes
-      for (const m of meshes) {
-        if (m.material) {
-          const mat = m.material.clone(m.material.name + '_summon')
-          if (mat && 'emissiveColor' in mat) {
-            ;(mat as any).emissiveColor = new Color3(0.15, 0.2, 0.6)
-          }
-          if (mat && 'albedoColor' in mat) {
-            ;(mat as any).albedoColor = new Color3(0.4, 0.5, 1.0)
-          }
-          m.material = mat
-        }
-      }
 
       this.summonPivot = pivot
       this.summonMeshes = meshes as AbstractMesh[]
@@ -533,6 +532,9 @@ export class Inventory {
     for (const m of this.summonMeshes) m.dispose()
     this.summonMeshes = []
     if (this.summonPivot) { this.summonPivot.dispose(); this.summonPivot = null }
+    for (const sp of this.summonProjectiles) sp.mesh.dispose()
+    this.summonProjectiles = []
+    this.summonAttackTimer = 0
   }
 
   // ── Target Scrolls ─────────────────────────────────────────────────────
@@ -808,7 +810,7 @@ export class Inventory {
     // Summon AI
     if (this.summonPivot && this.onGetEnemies) {
       const enemies = this.onGetEnemies()
-      let nearest: { getPosition(): Vector3; isDead(): boolean; takeDamage(n: number): void } | null = null
+      let nearest: { getPosition(): Vector3; isDead(): boolean; takeDamage(n: number): void; knockBack(dir: Vector3, force: number): void } | null = null
       let nearDist = 20
       for (const e of enemies) {
         if (e.isDead()) continue
@@ -818,23 +820,61 @@ export class Inventory {
       if (nearest) {
         const dir = nearest.getPosition().subtract(this.summonPivot.position)
         dir.y = 0
-        if (dir.length() > 0.1) {
-          dir.normalize()
-          this.summonPivot.rotation.y = Math.atan2(dir.x, dir.z)
+        if (dir.length() > 0.1) dir.normalize()
+        this.summonPivot.rotation.y = Math.atan2(dir.x, dir.z) + Math.PI
+        // Follow player loosely, keep 8-unit distance from enemy
+        if (nearDist < 7) {
+          this.summonPivot.position.subtractInPlace(dir.scale(dt * 4))
+        } else if (nearDist > 12) {
+          this.summonPivot.position.addInPlace(dir.scale(dt * 5))
         }
-        this.summonPivot.position.addInPlace(dir.scale(dt * 6))
-        if (nearDist < 2) nearest.takeDamage(1)
+        // Throw projectile at enemy on cooldown
+        this.summonAttackTimer -= dt
+        if (this.summonAttackTimer <= 0 && nearDist < 18) {
+          this.summonAttackTimer = 1.2
+          const spawnPos = this.summonPivot.position.add(new Vector3(0, 1.5, 0))
+          const vel = dir.scale(18)
+          const ball = MeshBuilder.CreateSphere('summonProj', { diameter: 0.5 }, this.scene)
+          const mat = new StandardMaterial('summonProjMat', this.scene)
+          mat.emissiveColor = new Color3(0.3, 0.8, 0.2)
+          mat.diffuseColor = new Color3(0.2, 0.6, 0.1)
+          ball.material = mat
+          ball.position.copyFrom(spawnPos)
+          this.summonProjectiles.push({ mesh: ball, velocity: vel, lifetime: 2.5, damage: 2 })
+        }
       } else {
         const toPlayer = pp.subtract(this.summonPivot.position)
         toPlayer.y = 0
         if (toPlayer.length() > 3) {
           toPlayer.normalize()
-          this.summonPivot.rotation.y = Math.atan2(toPlayer.x, toPlayer.z)
+          this.summonPivot.rotation.y = Math.atan2(toPlayer.x, toPlayer.z) + Math.PI
           this.summonPivot.position.addInPlace(toPlayer.scale(dt * 5))
         }
       }
       const sy = this.ground.getHeightAtCoordinates(this.summonPivot.position.x, this.summonPivot.position.z) ?? 0
       this.summonPivot.position.y = sy
+    }
+
+    // Update summon projectiles
+    for (let i = this.summonProjectiles.length - 1; i >= 0; i--) {
+      const sp = this.summonProjectiles[i]
+      sp.lifetime -= dt
+      sp.mesh.position.addInPlace(sp.velocity.scale(dt))
+      if (this.onGetEnemies) {
+        for (const e of this.onGetEnemies()) {
+          if (e.isDead()) continue
+          if (Vector3.Distance(sp.mesh.position, e.getPosition()) < 1.5) {
+            e.takeDamage(sp.damage)
+            e.knockBack(sp.velocity.normalize(), 15)
+            sp.lifetime = 0
+            break
+          }
+        }
+      }
+      if (sp.lifetime <= 0) {
+        sp.mesh.dispose()
+        this.summonProjectiles.splice(i, 1)
+      }
     }
 
     // Update fire projectiles

@@ -1,0 +1,1 @@
+import{Mn as e}from"./index-DUiNptyX.js";export{e as defaultPixelShader};

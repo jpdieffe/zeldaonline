@@ -1,0 +1,1 @@
+import{jr as e}from"./index-DUiNptyX.js";export{e as PBRMaterial};

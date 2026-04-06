@@ -173,6 +173,9 @@ export class Player {
   // External sensitivity multiplier (e.g. from inventory beam)
   sensMultiplierFn: (() => number) | null = null
 
+  // Camera: user-intended zoom (scroll wheel sets this)
+  private desiredCamRadius = CAM_RADIUS
+
   constructor(scene: Scene, ground: GroundMesh) {
     this.scene = scene
     this.ground = ground
@@ -258,9 +261,10 @@ export class Player {
 
     // Scroll-wheel zoom
     canvas.addEventListener('wheel', (e) => {
-      cam.radius += e.deltaY * 0.01
-      if (cam.radius < CAM_MIN_RADIUS) cam.radius = CAM_MIN_RADIUS
-      if (cam.radius > CAM_MAX_RADIUS) cam.radius = CAM_MAX_RADIUS
+      this.desiredCamRadius += e.deltaY * 0.01
+      if (this.desiredCamRadius < CAM_MIN_RADIUS) this.desiredCamRadius = CAM_MIN_RADIUS
+      if (this.desiredCamRadius > CAM_MAX_RADIUS) this.desiredCamRadius = CAM_MAX_RADIUS
+      cam.radius = this.desiredCamRadius
     })
   }
 
@@ -733,7 +737,10 @@ export class Player {
     const cosA = Math.cos(alpha)
     const sinA = Math.sin(alpha)
 
-    // Compute where camera would be at current radius
+    // Start from the user's desired radius each frame
+    cam.radius = this.desiredCamRadius
+
+    // Compute where camera would be at desired radius
     let r = cam.radius
     const camX = this.position.x + r * sinB * cosA
     const camZ = this.position.z + r * sinB * sinA
@@ -754,7 +761,7 @@ export class Player {
       cam.radius = lo
     }
 
-    // When looking down (low beta, bird's eye), pull camera closer
+    // When looking up (low beta, bird's eye), pull camera closer
     const LOOK_UP_THRESHOLD = 0.6  // beta below this starts pulling in
     if (beta < LOOK_UP_THRESHOLD) {
       const t = beta / LOOK_UP_THRESHOLD   // 0 = straight up, 1 = threshold

@@ -503,9 +503,9 @@ export class Inventory {
 
   getBuffs(): ActiveBuff[] { return this.buffs }
 
-  getSummonState(): { x: number; z: number; ry: number } | null {
+  getSummonState(): { x: number; y: number; z: number; ry: number } | null {
     if (!this.summonPivot) return null
-    return { x: this.summonPivot.position.x, z: this.summonPivot.position.z, ry: this.summonPivot.rotation.y }
+    return { x: this.summonPivot.position.x, y: this.summonPivot.position.y, z: this.summonPivot.position.z, ry: this.summonPivot.rotation.y }
   }
 
   // ── Summon: blue-tinted goblin follower (loads goblin.glb) ────────────

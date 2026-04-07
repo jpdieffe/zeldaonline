@@ -1,0 +1,1 @@
+import{jn as e}from"./index-COVgsL8Z.js";export{e as defaultVertexShader};

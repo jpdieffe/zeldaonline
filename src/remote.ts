@@ -262,10 +262,10 @@ export class RemotePlayer {
 
     // Summon goblin
     if (state.summon) {
-      this.summonTargetPos.set(state.summon.x, 0, state.summon.z)
+      this.summonTargetPos.set(state.summon.x, state.summon.y, state.summon.z)
       this.summonTargetRY = state.summon.ry
       if (!this.summonPivot && !this.summonLoading) {
-        this.spawnRemoteSummon(state.summon.x, state.summon.z, state.summon.ry)
+        this.spawnRemoteSummon(state.summon.x, state.summon.y, state.summon.z, state.summon.ry)
       }
     } else if (this.summonPivot) {
       this.disposeRemoteSummon()
@@ -292,6 +292,7 @@ export class RemotePlayer {
     if (this.summonPivot) {
       const sp = this.summonPivot.position
       sp.x += (this.summonTargetPos.x - sp.x) * Math.min(1, LERP_SPEED * dt)
+      sp.y += (this.summonTargetPos.y - sp.y) * Math.min(1, LERP_SPEED * dt)
       sp.z += (this.summonTargetPos.z - sp.z) * Math.min(1, LERP_SPEED * dt)
 
       let sdr = this.summonTargetRY - this.summonPivot.rotation.y
@@ -301,12 +302,12 @@ export class RemotePlayer {
     }
   }
 
-  private async spawnRemoteSummon(x: number, z: number, ry: number) {
+  private async spawnRemoteSummon(x: number, y: number, z: number, ry: number) {
     this.summonLoading = true
     try {
       const result = await SceneLoader.ImportMeshAsync('', './assets/bad_guys/goblin/', 'goblin.glb', this.scene)
       const pivot = new TransformNode('remoteSummonPivot', this.scene)
-      pivot.position.set(x, 0, z)
+      pivot.position.set(x, y, z)
       pivot.rotation.y = ry
 
       const root = result.meshes[0] as unknown as TransformNode
@@ -329,7 +330,7 @@ export class RemotePlayer {
       mat.alpha = 0.8
       mesh.material = mat
       const pivot = new TransformNode('remoteSummonPivot', this.scene)
-      pivot.position.set(x, 0.8, z)
+      pivot.position.set(x, y + 0.8, z)
       mesh.parent = pivot
       mesh.position.set(0, 0, 0)
       this.summonPivot = pivot

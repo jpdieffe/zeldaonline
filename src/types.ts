@@ -21,7 +21,7 @@ export interface PlayerState {
   skin?: string
   armorTint?: boolean
   invisible?: boolean
-  summon?: { x: number; z: number; ry: number }
+  summon?: { x: number; y: number; z: number; ry: number }
 }
 
 /** Network message envelope */

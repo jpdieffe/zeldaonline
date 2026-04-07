@@ -365,9 +365,10 @@ async function startGame(seed?: string) {
     getPlayerPos: () => player.getPosition(),
     getCameraForward: () => {
       const cam = player.camera
-      const dir = cam.getTarget().subtract(cam.position)
-      dir.normalize()
-      return dir
+      const sinB = Math.sin(cam.beta), cosB = Math.cos(cam.beta)
+      const sinA = Math.sin(cam.alpha), cosA = Math.cos(cam.alpha)
+      // Forward = direction from camera toward its orbit target
+      return new Vector3(-sinB * cosA, -cosB, -sinB * sinA)
     },
     getCameraPos: () => player.camera.position.clone(),
     getEnemies: () => enemyMgr.getEnemies(),

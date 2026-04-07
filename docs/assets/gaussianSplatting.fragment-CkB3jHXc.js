@@ -1,1 +1,0 @@
-import{xo as e}from"./index-Cfadb2Ix.js";export{e as gaussianSplattingPixelShaderWGSL};

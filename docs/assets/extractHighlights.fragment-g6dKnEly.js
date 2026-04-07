@@ -1,1 +1,0 @@
-import{Pt as e}from"./index-Cfadb2Ix.js";export{e as extractHighlightsPixelShaderWGSL};

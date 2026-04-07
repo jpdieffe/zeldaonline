@@ -1,0 +1,1 @@
+import{An as e}from"./index-DkuidBZQ.js";export{e as defaultPixelShaderWGSL};

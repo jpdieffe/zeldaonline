@@ -31,3 +31,5 @@ export interface EnemyNetState {
 export type NetMessage =
   | { type: 'state'; state: PlayerState }
   | { type: 'enemies'; enemies: EnemyNetState[] }
+  | { type: 'ping' }
+  | { type: 'pong' }

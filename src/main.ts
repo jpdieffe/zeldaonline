@@ -97,12 +97,18 @@ hostBtn.addEventListener('click', () => {
     hideLobby()
     gameRoomCode = roomId
     startGame(roomId)
+    network.markGameStarted()
   })
   network.onPeerConnected = () => {
+    hideStatus()
     if (!remote) {
       remote = new RemotePlayer(scene!)
     }
   }
+  network.onPeerDisconnected = () => {
+    showStatus('Peer disconnected — reconnecting…')
+  }
+  network.onStatus = (msg) => { if (msg) showStatus(msg); else hideStatus() }
   network.onError = (msg) => showStatus(msg, true)
 })
 
@@ -116,10 +122,21 @@ joinBtn.addEventListener('click', () => {
     hideLobby()
     gameRoomCode = code
     startGame(code)
+    network.markGameStarted()
     if (!remote) {
       remote = new RemotePlayer(scene!)
     }
   })
+  network.onPeerConnected = () => {
+    hideStatus()
+    if (!remote && scene) {
+      remote = new RemotePlayer(scene)
+    }
+  }
+  network.onPeerDisconnected = () => {
+    showStatus('Connection lost — reconnecting…')
+  }
+  network.onStatus = (msg) => { if (msg) showStatus(msg); else hideStatus() }
   network.onError = (msg) => { showStatus(msg, true); joinBtn.disabled = false }
 })
 

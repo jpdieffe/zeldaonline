@@ -1,1 +1,0 @@
-import{I as e}from"./index-DkuidBZQ.js";export{e as boundingBoxRendererVertexShaderWGSL};

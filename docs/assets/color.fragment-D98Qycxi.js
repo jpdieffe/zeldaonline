@@ -1,1 +1,0 @@
-import{Kn as e}from"./index-DUiNptyX.js";export{e as colorPixelShader};

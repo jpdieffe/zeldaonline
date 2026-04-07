@@ -1,1 +1,0 @@
-import{jn as e}from"./index-DUiNptyX.js";export{e as defaultVertexShader};

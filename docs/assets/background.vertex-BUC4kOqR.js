@@ -1,1 +1,0 @@
-import{Jn as e}from"./index-DUiNptyX.js";export{e as backgroundVertexShader};

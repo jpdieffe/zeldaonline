@@ -1,1 +1,0 @@
-import{vn as e}from"./index-DUiNptyX.js";export{e as particlesPixelShaderWGSL};

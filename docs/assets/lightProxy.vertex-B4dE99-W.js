@@ -1,0 +1,1 @@
+import{Zn as e}from"./index-fSe308JV.js";export{e as lightProxyVertexShaderWGSL};

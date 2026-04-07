@@ -74,6 +74,7 @@ export class Player {
   private scene: Scene
   private ground: GroundMesh
   private collidableMeshes: Mesh[] = []
+  private cameraCollideMeshes: AbstractMesh[] = []
 
   position = SPAWN.clone()
   private velocity = Vector3.Zero()
@@ -213,6 +214,10 @@ export class Player {
 
   setCollidableMeshes(meshes: Mesh[]) {
     this.collidableMeshes = meshes
+  }
+
+  setCameraCollideMeshes(meshes: AbstractMesh[]) {
+    this.cameraCollideMeshes = meshes
   }
 
   private wallCollider: ((pos: Vector3) => void) | null = null
@@ -759,6 +764,29 @@ export class Player {
         if (cy < gy) hi = mid; else lo = mid
       }
       cam.radius = lo
+    }
+
+    // Raycast from target toward camera to avoid clipping through walls
+    if (this.cameraCollideMeshes.length > 0) {
+      const targetPos = new Vector3(this.position.x, headY, this.position.z)
+      const currentR = cam.radius
+      const camPos = new Vector3(
+        this.position.x + currentR * sinB * cosA,
+        headY + currentR * cosB,
+        this.position.z + currentR * sinB * sinA
+      )
+      const dir = camPos.subtract(targetPos)
+      const len = dir.length()
+      if (len > 0.01) {
+        dir.normalize()
+        const ray = new Ray(targetPos, dir, len)
+        for (const mesh of this.cameraCollideMeshes) {
+          const hit = ray.intersectsMesh(mesh, false)
+          if (hit.hit && hit.distance < cam.radius) {
+            cam.radius = Math.max(CAM_MIN_RADIUS, hit.distance - 0.3)
+          }
+        }
+      }
     }
 
     // When looking up (low beta, bird's eye), pull camera closer

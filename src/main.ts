@@ -270,6 +270,7 @@ async function startGame(seed?: string) {
   }
 
   player.setCollidableMeshes(structures.collidable)
+  player.setCameraCollideMeshes([...cliffMeshes, ...structures.collidable])
   player.setWallCollider((pos) => {
     structures.resolveCollision(pos)
     // Clamp to cliff walls

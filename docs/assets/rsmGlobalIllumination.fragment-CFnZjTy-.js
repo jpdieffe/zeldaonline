@@ -1,1 +1,0 @@
-import{G as e}from"./index-DUiNptyX.js";export{e as rsmGlobalIlluminationPixelShaderWGSL};

@@ -48,7 +48,8 @@ export class Network {
   onPeerDisconnected: (() => void) | null = null
   onError: ((msg: string) => void) | null = null
   onStatus: ((msg: string) => void) | null = null
-  onGroundItem: ((itemId: string, x: number, y: number, z: number) => void) | null = null
+  onGroundItem: ((itemId: string, x: number, y: number, z: number, uid: number) => void) | null = null
+  onPickItem: ((uid: number) => void) | null = null
   onSpell: ((spell: string, x: number, y: number, z: number, dx: number, dy: number, dz: number, damage?: number) => void) | null = null
 
   static generateRoomCode(): string { return fruitId() }
@@ -165,7 +166,9 @@ export class Network {
       } else if (msg.type === 'pong') {
         this.lastPong = Date.now()
       } else if (msg.type === 'groundItem') {
-        this.onGroundItem?.(msg.itemId, msg.x, msg.y, msg.z)
+        this.onGroundItem?.(msg.itemId, msg.x, msg.y, msg.z, msg.uid)
+      } else if (msg.type === 'pickItem') {
+        this.onPickItem?.(msg.uid)
       } else if (msg.type === 'spell') {
         this.onSpell?.(msg.spell, msg.x, msg.y, msg.z, msg.dx, msg.dy, msg.dz, msg.damage)
       }

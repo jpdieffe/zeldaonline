@@ -13,7 +13,10 @@ export interface InvSlot {
 }
 
 // ── Ground Item (3D) ─────────────────────────────────────────────────────────
+let _nextGiUid = 0
+
 interface GroundItem {
+  uid: number
   itemId: string
   position: Vector3
   mesh: AbstractMesh
@@ -795,13 +798,15 @@ export class Inventory {
   }
 
   // ── Ground Items ────────────────────────────────────────────────────────
-  spawnGroundItem(itemId: string, worldPos: Vector3, isRemote = false) {
+  spawnGroundItem(itemId: string, worldPos: Vector3, isRemote = false, uid?: number) {
     const def = getItem(itemId)
     if (!def) return
 
+    const assignedUid = uid ?? _nextGiUid++
+
     // Notify peer
     if (!isRemote) {
-      this.onNetSend?.({ type: 'groundItem', itemId, x: worldPos.x, y: worldPos.y, z: worldPos.z })
+      this.onNetSend?.({ type: 'groundItem', itemId, x: worldPos.x, y: worldPos.y, z: worldPos.z, uid: assignedUid })
     }
 
     // Create a plane with dynamic texture showing the emoji
@@ -832,6 +837,7 @@ export class Inventory {
     const angle = Math.random() * Math.PI * 2
     const hSpeed = 1.5 + Math.random() * 2
     this.groundItems.push({
+      uid: assignedUid,
       itemId, position: mesh.position.clone(), mesh,
       bobPhase: Math.random() * Math.PI * 2,
       velocityY: 8 + Math.random() * 4,
@@ -896,6 +902,7 @@ export class Inventory {
       const dz = pp.z - gi.position.z
       if (Math.sqrt(dx * dx + dz * dz) < 2.5) {
         if (this.addItem(gi.itemId)) {
+          this.onNetSend?.({ type: 'pickItem', uid: gi.uid })
           gi.mesh.dispose()
           this.groundItems.splice(i, 1)
           this.refreshIfOpen()
@@ -1184,6 +1191,15 @@ export class Inventory {
     const pp = this.getPlayerPos?.() ?? Vector3.Zero()
     const offset = new Vector3((Math.random() - 0.5) * 4, 0, (Math.random() - 0.5) * 4)
     this.spawnGroundItem(itemId, pp.add(offset))
+  }
+
+  /** Remove a ground item by uid (called when remote player picks it up) */
+  removeGroundItemByUid(uid: number) {
+    const idx = this.groundItems.findIndex(gi => gi.uid === uid)
+    if (idx >= 0) {
+      this.groundItems[idx].mesh.dispose()
+      this.groundItems.splice(idx, 1)
+    }
   }
 
   getSlots(): InvSlot[] { return this.slots }

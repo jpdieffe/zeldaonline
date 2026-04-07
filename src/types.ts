@@ -33,5 +33,6 @@ export type NetMessage =
   | { type: 'enemies'; enemies: EnemyNetState[] }
   | { type: 'ping' }
   | { type: 'pong' }
-  | { type: 'groundItem'; itemId: string; x: number; y: number; z: number }
+  | { type: 'groundItem'; itemId: string; x: number; y: number; z: number; uid: number }
+  | { type: 'pickItem'; uid: number }
   | { type: 'spell'; spell: string; x: number; y: number; z: number; dx: number; dy: number; dz: number; damage?: number }

@@ -407,8 +407,11 @@ async function startGame(seed?: string) {
 
   // Network: sync ground items and spells
   inventory.onNetSend = (msg) => network.send(msg)
-  network.onGroundItem = (itemId, x, y, z) => {
-    inventory.spawnGroundItem(itemId, new Vector3(x, y, z), true)
+  network.onGroundItem = (itemId, x, y, z, uid) => {
+    inventory.spawnGroundItem(itemId, new Vector3(x, y, z), true, uid)
+  }
+  network.onPickItem = (uid) => {
+    inventory.removeGroundItemByUid(uid)
   }
   network.onSpell = (spell, x, y, z, dx, dy, dz) => {
     inventory.castSpellRemote(spell, x, y, z, dx, dy, dz)

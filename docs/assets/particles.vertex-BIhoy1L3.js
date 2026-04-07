@@ -1,1 +1,0 @@
-import{_n as e}from"./index-CfSRGkLV.js";export{e as particlesVertexShaderWGSL};

@@ -19,6 +19,9 @@ export interface PlayerState {
   sword: boolean
   shield?: boolean
   skin?: string
+  armorTint?: boolean
+  invisible?: boolean
+  summon?: { x: number; z: number; ry: number }
 }
 
 /** Network message envelope */

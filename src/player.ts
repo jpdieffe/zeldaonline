@@ -980,7 +980,7 @@ export class Player {
 
   // ── Public API ────────────────────────────────────────────────────────────
   getState(): PlayerState {
-    return {
+    const s: PlayerState = {
       x: this.position.x,
       y: this.position.y,
       z: this.position.z,
@@ -990,6 +990,9 @@ export class Player {
       shield: this.shieldEquipped,
       skin: this.skinNames[this.skinIndex],
     }
+    if (this._armorTint) s.armorTint = true
+    if (this._invisible) s.invisible = true
+    return s
   }
 
   getPosition(): Vector3 { return this.position.clone() }
@@ -1127,8 +1130,11 @@ export class Player {
 
   // ── Buff visuals ──────────────────────────────────────────────────────
   private flyMode = false
+  private _armorTint = false
+  private _invisible = false
 
   setInvisible(on: boolean) {
+    this._invisible = on
     const meshes = this.skinMeshSets[this.skinIndex]
     if (!meshes) return
     for (const m of meshes) {
@@ -1137,6 +1143,7 @@ export class Player {
   }
 
   setArmorTint(on: boolean) {
+    this._armorTint = on
     const meshes = this.skinMeshSets[this.skinIndex]
     if (!meshes) return
     for (const m of meshes) {

@@ -623,7 +623,10 @@ async function startGame(seed?: string) {
     sendTimer += dt
     if (sendTimer >= SEND_INTERVAL && network.isConnected()) {
       sendTimer = 0
-      network.sendPosition(player.getState())
+      const state = player.getState()
+      const summon = inventory.getSummonState()
+      if (summon) state.summon = summon
+      network.sendPosition(state)
     }
 
     // Host broadcasts enemy states

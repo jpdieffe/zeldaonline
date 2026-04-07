@@ -503,6 +503,11 @@ export class Inventory {
 
   getBuffs(): ActiveBuff[] { return this.buffs }
 
+  getSummonState(): { x: number; z: number; ry: number } | null {
+    if (!this.summonPivot) return null
+    return { x: this.summonPivot.position.x, z: this.summonPivot.position.z, ry: this.summonPivot.rotation.y }
+  }
+
   // ── Summon: blue-tinted goblin follower (loads goblin.glb) ────────────
   private async spawnSummon() {
     this.disposeSummon()

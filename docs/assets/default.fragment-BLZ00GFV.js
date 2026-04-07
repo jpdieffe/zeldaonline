@@ -1,1 +1,0 @@
-import{Mn as e}from"./index-CfSRGkLV.js";export{e as defaultPixelShader};

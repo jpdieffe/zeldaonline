@@ -6,6 +6,9 @@ import {
   TransformNode,
   AnimationGroup,
   AbstractMesh,
+  Color3,
+  StandardMaterial,
+  MeshBuilder,
 } from '@babylonjs/core'
 import type { AnimState, PlayerState } from './types'
 
@@ -70,6 +73,18 @@ export class RemotePlayer {
   private shieldPivot: TransformNode | null = null
   private shieldMeshes: AbstractMesh[] = []
   private shieldEquipped = true
+
+  // Buff visuals
+  private _armorTint = false
+  private _invisible = false
+
+  // Remote summon goblin
+  private summonPivot: TransformNode | null = null
+  private summonMeshes: AbstractMesh[] = []
+  private summonAnimGroups: AnimationGroup[] = []
+  private summonLoading = false
+  private summonTargetPos = Vector3.Zero()
+  private summonTargetRY = 0
 
   constructor(scene: Scene) {
     this.scene = scene
@@ -216,6 +231,45 @@ export class RemotePlayer {
     if (state.skin && state.skin !== this.currentSkin) {
       this.switchSkin(state.skin)
     }
+
+    // Armor tint
+    const wantTint = state.armorTint ?? false
+    if (wantTint !== this._armorTint) {
+      this._armorTint = wantTint
+      const skinIdx = SKIN_NAMES.indexOf(this.currentSkin)
+      if (skinIdx >= 0) {
+        for (const m of this.skinMeshSets[skinIdx]) {
+          if (!m.material) continue
+          const mat = m.material as any
+          if (mat.emissiveColor !== undefined) {
+            mat.emissiveColor = wantTint ? new Color3(0.1, 0.15, 0.5) : new Color3(0, 0, 0)
+          }
+        }
+      }
+    }
+
+    // Invisibility
+    const wantInvis = state.invisible ?? false
+    if (wantInvis !== this._invisible) {
+      this._invisible = wantInvis
+      const skinIdx = SKIN_NAMES.indexOf(this.currentSkin)
+      if (skinIdx >= 0) {
+        for (const m of this.skinMeshSets[skinIdx]) {
+          m.visibility = wantInvis ? 0.3 : 1.0
+        }
+      }
+    }
+
+    // Summon goblin
+    if (state.summon) {
+      this.summonTargetPos.set(state.summon.x, 0, state.summon.z)
+      this.summonTargetRY = state.summon.ry
+      if (!this.summonPivot && !this.summonLoading) {
+        this.spawnRemoteSummon(state.summon.x, state.summon.z, state.summon.ry)
+      }
+    } else if (this.summonPivot) {
+      this.disposeRemoteSummon()
+    }
   }
 
   update(dt: number) {
@@ -233,9 +287,67 @@ export class RemotePlayer {
     while (dr > Math.PI)  dr -= Math.PI * 2
     while (dr < -Math.PI) dr += Math.PI * 2
     this.root.rotation.y += dr * Math.min(1, LERP_SPEED * dt)
+
+    // Lerp summon position
+    if (this.summonPivot) {
+      const sp = this.summonPivot.position
+      sp.x += (this.summonTargetPos.x - sp.x) * Math.min(1, LERP_SPEED * dt)
+      sp.z += (this.summonTargetPos.z - sp.z) * Math.min(1, LERP_SPEED * dt)
+
+      let sdr = this.summonTargetRY - this.summonPivot.rotation.y
+      while (sdr > Math.PI)  sdr -= Math.PI * 2
+      while (sdr < -Math.PI) sdr += Math.PI * 2
+      this.summonPivot.rotation.y += sdr * Math.min(1, LERP_SPEED * dt)
+    }
+  }
+
+  private async spawnRemoteSummon(x: number, z: number, ry: number) {
+    this.summonLoading = true
+    try {
+      const result = await SceneLoader.ImportMeshAsync('', './assets/bad_guys/goblin/', 'goblin.glb', this.scene)
+      const pivot = new TransformNode('remoteSummonPivot', this.scene)
+      pivot.position.set(x, 0, z)
+      pivot.rotation.y = ry
+
+      const root = result.meshes[0] as unknown as TransformNode
+      root.parent = pivot
+      root.scaling.setAll(2.0)
+
+      this.summonPivot = pivot
+      this.summonMeshes = result.meshes.filter(m => m !== result.meshes[0]) as AbstractMesh[]
+      this.summonAnimGroups = result.animationGroups
+
+      for (const ag of result.animationGroups) ag.stop()
+      const walkAnim = result.animationGroups.find(g => g.name === 'Zombie_Walk_Fwd_Loop')
+      const idleAnim = result.animationGroups.find(g => g.name === 'Zombie_Idle_Loop')
+      ;(walkAnim ?? idleAnim)?.start(true)
+    } catch (e) {
+      console.warn('Failed to load remote summon goblin:', e)
+      const mesh = MeshBuilder.CreateSphere('remoteSummonFB', { diameter: 1.2 }, this.scene)
+      const mat = new StandardMaterial('remoteSummonFBMat', this.scene)
+      mat.emissiveColor = new Color3(0.2, 0.3, 0.8)
+      mat.alpha = 0.8
+      mesh.material = mat
+      const pivot = new TransformNode('remoteSummonPivot', this.scene)
+      pivot.position.set(x, 0.8, z)
+      mesh.parent = pivot
+      mesh.position.set(0, 0, 0)
+      this.summonPivot = pivot
+      this.summonMeshes = [mesh]
+    }
+    this.summonLoading = false
+  }
+
+  private disposeRemoteSummon() {
+    for (const ag of this.summonAnimGroups) ag.dispose()
+    this.summonAnimGroups = []
+    for (const m of this.summonMeshes) m.dispose()
+    this.summonMeshes = []
+    if (this.summonPivot) { this.summonPivot.dispose(); this.summonPivot = null }
   }
 
   dispose() {
+    this.disposeRemoteSummon()
     this.root?.dispose()
   }
 }

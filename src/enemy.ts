@@ -287,8 +287,16 @@ export class Enemy {
     return (y != null && isFinite(y)) ? y : 0
   }
 
-  update(dt: number, playerPositions: Vector3[]): { wantAttack: boolean } {
-    if (!this.loaded) return { wantAttack: false }
+  /** Tick flash timer only (for joiner, which doesn't call update()) */
+  tickVisuals(dt: number) {
+    if (this.flashTimer > 0) {
+      this.flashTimer -= dt
+      if (this.flashTimer <= 0) this.restoreColors()
+    }
+  }
+
+  update(dt: number, playerPositions: Vector3[]): { wantAttack: boolean; attackedPlayerIdx: number } {
+    if (!this.loaded) return { wantAttack: false, attackedPlayerIdx: 0 }
 
     // Update projectiles always (even while dead)
     this.updateProjectiles(dt)
@@ -339,16 +347,18 @@ export class Enemy {
         entry.pivot.position.copyFrom(this.position)
         entry.pivot.rotation.y = this.facingY
       }
-      return { wantAttack: false }
+      return { wantAttack: false, attackedPlayerIdx: 0 }
     }
 
     let nearestPos = playerPositions[0]
     let nearestDistSq = Infinity
-    for (const pp of playerPositions) {
+    let nearestIdx = 0
+    for (let pi = 0; pi < playerPositions.length; pi++) {
+      const pp = playerPositions[pi]
       const dx = pp.x - this.position.x
       const dz = pp.z - this.position.z
       const dsq = dx * dx + dz * dz
-      if (dsq < nearestDistSq) { nearestDistSq = dsq; nearestPos = pp }
+      if (dsq < nearestDistSq) { nearestDistSq = dsq; nearestPos = pp; nearestIdx = pi }
     }
 
     const toPlayer = nearestPos.subtract(this.position)
@@ -497,7 +507,7 @@ export class Enemy {
       entry.pivot.rotation.y = this.facingY
     }
 
-    return { wantAttack }
+    return { wantAttack, attackedPlayerIdx: nearestIdx }
   }
 
   takeDamage(amount: number) {
@@ -819,11 +829,11 @@ export class EnemyManager {
     }
   }
 
-  update(dt: number, playerPositions: Vector3[], onEnemyAttack: (enemy: Enemy) => void) {
+  update(dt: number, playerPositions: Vector3[], onEnemyAttack: (enemy: Enemy, attackedPlayerIdx: number) => void) {
     for (const enemy of this.enemies) {
       const result = enemy.update(dt, playerPositions)
       if (result.wantAttack) {
-        onEnemyAttack(enemy)
+        onEnemyAttack(enemy, result.attackedPlayerIdx)
       }
     }
     // Separate overlapping ground enemies so they don't stack
@@ -880,5 +890,9 @@ export class EnemyManager {
     for (let i = 0; i < states.length && i < this.enemies.length; i++) {
       this.enemies[i].applyNetState(states[i])
     }
+  }
+
+  tickVisuals(dt: number) {
+    for (const enemy of this.enemies) enemy.tickVisuals(dt)
   }
 }

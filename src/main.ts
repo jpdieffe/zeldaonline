@@ -416,6 +416,12 @@ async function startGame(seed?: string) {
   network.onSpell = (spell, x, y, z, dx, dy, dz) => {
     inventory.castSpellRemote(spell, x, y, z, dx, dy, dz)
   }
+  network.onDamage = (amount, knockX, knockZ, knockForce) => {
+    const knockDir = new Vector3(knockX, 0, knockZ)
+    player.knockBack(knockDir, knockForce)
+    const dmg = inventory.hasBuff('armor') ? Math.max(1, Math.floor(amount / 2)) : amount
+    player.takeDamage(dmg)
+  }
 
   // Track enemy deaths for loot drops
   const enemyWasDead = new Set<Enemy>()
@@ -560,17 +566,42 @@ async function startGame(seed?: string) {
     // Host runs AI; joiner applies received states
     if (!isJoiner) {
       const positions: Vector3[] = []
+      let hostIdx = -1
+      let remoteIdx = -1
       if (!inventory.hasBuff('invisibility')) {
+        hostIdx = positions.length
         positions.push(player.getPosition())
       }
       if (network.isConnected() && network.lastRemoteState) {
+        remoteIdx = positions.length
         positions.push(new Vector3(
           network.lastRemoteState.x,
           network.lastRemoteState.y,
           network.lastRemoteState.z,
         ))
       }
-      enemyMgr.update(dt, positions, (enemy) => {
+      enemyMgr.update(dt, positions, (enemy, attackedPlayerIdx) => {
+        if (attackedPlayerIdx === remoteIdx && remoteIdx >= 0) {
+          // Enemy attacked the joiner — send damage over network
+          const rp = new Vector3(
+            network.lastRemoteState!.x,
+            network.lastRemoteState!.y,
+            network.lastRemoteState!.z,
+          )
+          const ep = enemy.getPosition()
+          const knockDir = rp.subtract(ep)
+          knockDir.y = 0
+          if (knockDir.length() > 0.01) knockDir.normalize()
+          network.send({
+            type: 'damage',
+            amount: enemy.damage,
+            knockX: knockDir.x,
+            knockZ: knockDir.z,
+            knockForce: 150,
+          })
+          return
+        }
+        // Enemy attacked the host player
         const pp = player.getPosition()
         // Use lunge direction for shield check (orc stops on contact now, but direction is reliable)
         const lungeDir = enemyMgr.getLungeDir(enemy)
@@ -597,6 +628,8 @@ async function startGame(seed?: string) {
       lastEnemyVersion = network.enemyStatesVersion
       enemyMgr.applyNetStates(network.lastEnemyStates)
     }
+    // Tick enemy flash timers for joiner (who doesn't call update)
+    if (isJoiner) enemyMgr.tickVisuals(dt)
 
     // Loot drops on enemy death (host rolls loot and syncs to joiner)
     for (const enemy of enemyMgr.getEnemies()) {

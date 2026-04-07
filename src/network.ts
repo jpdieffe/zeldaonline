@@ -51,6 +51,7 @@ export class Network {
   onGroundItem: ((itemId: string, x: number, y: number, z: number, uid: number) => void) | null = null
   onPickItem: ((uid: number) => void) | null = null
   onSpell: ((spell: string, x: number, y: number, z: number, dx: number, dy: number, dz: number, damage?: number) => void) | null = null
+  onDamage: ((amount: number, knockX: number, knockZ: number, knockForce: number) => void) | null = null
 
   static generateRoomCode(): string { return fruitId() }
 
@@ -171,6 +172,8 @@ export class Network {
         this.onPickItem?.(msg.uid)
       } else if (msg.type === 'spell') {
         this.onSpell?.(msg.spell, msg.x, msg.y, msg.z, msg.dx, msg.dy, msg.dz, msg.damage)
+      } else if (msg.type === 'damage') {
+        this.onDamage?.(msg.amount, msg.knockX, msg.knockZ, msg.knockForce)
       }
     })
     conn.on('close', () => {

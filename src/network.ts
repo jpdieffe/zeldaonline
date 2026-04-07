@@ -48,6 +48,8 @@ export class Network {
   onPeerDisconnected: (() => void) | null = null
   onError: ((msg: string) => void) | null = null
   onStatus: ((msg: string) => void) | null = null
+  onGroundItem: ((itemId: string, x: number, y: number, z: number) => void) | null = null
+  onSpell: ((spell: string, x: number, y: number, z: number, dx: number, dy: number, dz: number, damage?: number) => void) | null = null
 
   static generateRoomCode(): string { return fruitId() }
 
@@ -162,6 +164,10 @@ export class Network {
         if (this.conn?.open) this.conn.send({ type: 'pong' })
       } else if (msg.type === 'pong') {
         this.lastPong = Date.now()
+      } else if (msg.type === 'groundItem') {
+        this.onGroundItem?.(msg.itemId, msg.x, msg.y, msg.z)
+      } else if (msg.type === 'spell') {
+        this.onSpell?.(msg.spell, msg.x, msg.y, msg.z, msg.dx, msg.dy, msg.dz, msg.damage)
       }
     })
     conn.on('close', () => {
@@ -272,6 +278,10 @@ export class Network {
       const msg: NetMessage = { type: 'enemies', enemies }
       this.conn.send(msg)
     }
+  }
+
+  send(msg: NetMessage) {
+    if (this.conn?.open) this.conn.send(msg)
   }
 
   lastEnemyStates: EnemyNetState[] | null = null

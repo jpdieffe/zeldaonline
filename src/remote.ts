@@ -120,6 +120,9 @@ export class RemotePlayer {
       this.swordPivot.rotation.set(2.3, 0, 0)
       const swordRoot = swordResult.meshes[0] as unknown as TransformNode
       swordRoot.parent = this.swordPivot
+      swordRoot.position.set(0, 0, 0)
+      swordRoot.rotation.set(0, 0, 0)
+      swordRoot.scaling.setAll(1)
       this.swordMeshes = swordResult.meshes.filter(m => m !== swordResult.meshes[0])
       for (const m of this.swordMeshes) m.isVisible = true
     }

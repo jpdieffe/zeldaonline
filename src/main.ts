@@ -405,6 +405,15 @@ async function startGame(seed?: string) {
   const debugMenu = new DebugItemMenu(inventory)
   player.sensMultiplierFn = () => inventory.cameraSensMultiplier
 
+  // Network: sync ground items and spells
+  inventory.onNetSend = (msg) => network.send(msg)
+  network.onGroundItem = (itemId, x, y, z) => {
+    inventory.spawnGroundItem(itemId, new Vector3(x, y, z), true)
+  }
+  network.onSpell = (spell, x, y, z, dx, dy, dz) => {
+    inventory.castSpellRemote(spell, x, y, z, dx, dy, dz)
+  }
+
   // Track enemy deaths for loot drops
   const enemyWasDead = new Set<Enemy>()
 
@@ -586,12 +595,14 @@ async function startGame(seed?: string) {
       enemyMgr.applyNetStates(network.lastEnemyStates)
     }
 
-    // Loot drops on enemy death
+    // Loot drops on enemy death (host rolls loot and syncs to joiner)
     for (const enemy of enemyMgr.getEnemies()) {
       if (enemy.isDead() && !enemyWasDead.has(enemy)) {
         enemyWasDead.add(enemy)
-        const loot = rollLoot()
-        if (loot) inventory.spawnGroundItem(loot, enemy.getPosition())
+        if (!isJoiner) {
+          const loot = rollLoot()
+          if (loot) inventory.spawnGroundItem(loot, enemy.getPosition())
+        }
       } else if (!enemy.isDead()) {
         enemyWasDead.delete(enemy)
       }

@@ -135,6 +135,9 @@ export class Inventory {
   // Camera sensitivity multiplier (lowered while beam is active)
   cameraSensMultiplier = 1.0
 
+  // Network send callback (set by main.ts)
+  onNetSend: ((msg: any) => void) | null = null
+
   // Quick slots
   private quickSlots: (string | null)[] = [null, null, null, null]
   private quickSlotAssignMode: number | null = null  // which quick slot # is awaiting click
@@ -574,14 +577,15 @@ export class Inventory {
     const camFwd = this.getCameraForward?.() ?? new Vector3(0, 0, 1)
     const pp = this.getPlayerPos?.() ?? Vector3.Zero()
 
-    switch (def.spellElement) {
-      case 'fire':     this.spawnFireball(pp, camFwd, def.spellDamage ?? 5); break
-      case 'water':    this.spawnBeam(pp, camFwd, 'water', def.spellDamage ?? 3, 5, 0.4); break
-      case 'rock':     this.spawnBoulder(pp, camFwd, def.spellDamage ?? 4); break
-      case 'lightning': this.spawnLightning(pp, camFwd, def.spellDamage ?? 6); break
-      case 'grass':    this.spawnVineZone(pp, camFwd); break
-      case 'laser':    this.spawnBeam(pp, camFwd, 'laser', def.spellDamage ?? 8, 5, 1.2); break
-    }
+    this.castSpell(def.spellElement, pp, camFwd, def.spellDamage ?? 5)
+
+    // Notify peer
+    this.onNetSend?.({
+      type: 'spell', spell: def.spellElement,
+      x: pp.x, y: pp.y, z: pp.z,
+      dx: camFwd.x, dy: camFwd.y, dz: camFwd.z,
+      damage: def.spellDamage,
+    })
 
     // Consume the item now that we've actually fired
     if (this.targetingQuickSlot !== null) {
@@ -594,6 +598,33 @@ export class Inventory {
     this.targetScrollId = null
     if (this.crosshair) this.crosshair.style.display = 'none'
     this.renderQuickSlots()
+  }
+
+  /** Spawn a spell locally (with damage for own spells) */
+  private castSpell(spell: string, pp: Vector3, dir: Vector3, damage: number) {
+    switch (spell) {
+      case 'fire':     this.spawnFireball(pp, dir, damage); break
+      case 'water':    this.spawnBeam(pp, dir, 'water', damage, 5, 0.4); break
+      case 'rock':     this.spawnBoulder(pp, dir, damage); break
+      case 'lightning': this.spawnLightning(pp, dir, damage); break
+      case 'grass':    this.spawnVineZone(pp, dir); break
+      case 'laser':    this.spawnBeam(pp, dir, 'laser', damage, 5, 1.2); break
+    }
+  }
+
+  /** Spawn a remote player's spell (visual only, 0 damage) */
+  castSpellRemote(spell: string, x: number, y: number, z: number, dx: number, dy: number, dz: number) {
+    const pp = new Vector3(x, y, z)
+    const dir = new Vector3(dx, dy, dz)
+    // Use 0 damage — remote spells are visual only; the caster's game handles hits
+    switch (spell) {
+      case 'fire':     this.spawnFireball(pp, dir, 0); break
+      case 'water':    this.spawnBeam(pp, dir, 'water', 0, 5, 0.4); break
+      case 'rock':     this.spawnBoulder(pp, dir, 0); break
+      case 'lightning': this.spawnLightning(pp, dir, 0); break
+      case 'grass':    this.spawnVineZone(pp, dir); break
+      case 'laser':    this.spawnBeam(pp, dir, 'laser', 0, 5, 1.2); break
+    }
   }
 
   // ── FIRE: projectile that explodes on contact ──────────────────────────
@@ -764,9 +795,14 @@ export class Inventory {
   }
 
   // ── Ground Items ────────────────────────────────────────────────────────
-  spawnGroundItem(itemId: string, worldPos: Vector3) {
+  spawnGroundItem(itemId: string, worldPos: Vector3, isRemote = false) {
     const def = getItem(itemId)
     if (!def) return
+
+    // Notify peer
+    if (!isRemote) {
+      this.onNetSend?.({ type: 'groundItem', itemId, x: worldPos.x, y: worldPos.y, z: worldPos.z })
+    }
 
     // Create a plane with dynamic texture showing the emoji
     const mesh = MeshBuilder.CreatePlane(`gi_${itemId}_${Date.now()}`, { size: 1.0 }, this.scene) as Mesh

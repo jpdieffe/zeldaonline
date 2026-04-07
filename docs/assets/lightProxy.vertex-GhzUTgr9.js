@@ -1,0 +1,1 @@
+import{Zn as e}from"./index-Cfadb2Ix.js";export{e as lightProxyVertexShaderWGSL};

@@ -1,0 +1,1 @@
+import{G as e}from"./index-Cfadb2Ix.js";export{e as rsmGlobalIlluminationPixelShaderWGSL};

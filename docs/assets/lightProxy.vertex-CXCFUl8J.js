@@ -1,0 +1,1 @@
+import{$n as e}from"./index-Cfadb2Ix.js";export{e as lightProxyVertexShader};

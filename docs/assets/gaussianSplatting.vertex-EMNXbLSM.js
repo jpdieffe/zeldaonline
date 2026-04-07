@@ -1,0 +1,1 @@
+import{bo as e}from"./index-Cfadb2Ix.js";export{e as gaussianSplattingVertexShaderWGSL};

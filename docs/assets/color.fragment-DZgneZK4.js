@@ -1,0 +1,1 @@
+import{Kn as e}from"./index-Cfadb2Ix.js";export{e as colorPixelShader};

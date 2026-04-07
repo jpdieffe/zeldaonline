@@ -18,6 +18,12 @@ interface GroundItem {
   position: Vector3
   mesh: AbstractMesh
   bobPhase: number
+  // Bounce physics
+  velocityY: number
+  velocityX: number
+  velocityZ: number
+  bounces: number
+  settled: boolean
 }
 
 // ── Active Buff ──────────────────────────────────────────────────────────────
@@ -785,7 +791,19 @@ export class Inventory {
 
     const gy = this.ground.getHeightAtCoordinates(worldPos.x, worldPos.z) ?? 0
     mesh.position.set(worldPos.x, gy + 1.0, worldPos.z)
-    this.groundItems.push({ itemId, position: mesh.position.clone(), mesh, bobPhase: Math.random() * Math.PI * 2 })
+
+    // Launch upward with random horizontal spread
+    const angle = Math.random() * Math.PI * 2
+    const hSpeed = 1.5 + Math.random() * 2
+    this.groundItems.push({
+      itemId, position: mesh.position.clone(), mesh,
+      bobPhase: Math.random() * Math.PI * 2,
+      velocityY: 8 + Math.random() * 4,
+      velocityX: Math.cos(angle) * hSpeed,
+      velocityZ: Math.sin(angle) * hSpeed,
+      bounces: 0,
+      settled: false,
+    })
   }
 
   addItem(itemId: string, count = 1): boolean {
@@ -803,6 +821,38 @@ export class Inventory {
     // Bob ground items + pickup
     for (let i = this.groundItems.length - 1; i >= 0; i--) {
       const gi = this.groundItems[i]
+
+      if (!gi.settled) {
+        // Apply gravity and move
+        gi.velocityY -= 28 * dt
+        gi.position.x += gi.velocityX * dt
+        gi.position.y += gi.velocityY * dt
+        gi.position.z += gi.velocityZ * dt
+
+        const gy = (this.ground.getHeightAtCoordinates(gi.position.x, gi.position.z) ?? 0) + 0.5
+        if (gi.position.y <= gy) {
+          gi.position.y = gy
+          gi.bounces++
+          if (gi.bounces >= 3) {
+            // Done bouncing — settle
+            gi.settled = true
+            gi.velocityY = 0
+            gi.velocityX = 0
+            gi.velocityZ = 0
+            gi.position.y = gy + 0.5
+          } else {
+            // Bounce: dampen velocity
+            gi.velocityY = Math.abs(gi.velocityY) * 0.45
+            gi.velocityX *= 0.5
+            gi.velocityZ *= 0.5
+          }
+        }
+
+        gi.mesh.position.copyFrom(gi.position)
+        gi.mesh.rotation.y += dt * 6
+        continue  // not pickable until settled or at least 1 bounce
+      }
+
       gi.bobPhase += dt * 3
       gi.mesh.position.y = gi.position.y + Math.sin(gi.bobPhase) * 0.3
       gi.mesh.rotation.y += dt * 2

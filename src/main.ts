@@ -416,7 +416,15 @@ async function startGame(seed?: string) {
   network.onSpell = (spell, x, y, z, dx, dy, dz) => {
     inventory.castSpellRemote(spell, x, y, z, dx, dy, dz)
   }
-  network.onDamage = (amount, knockX, knockZ, knockForce) => {
+  network.onDamage = (amount, knockX, knockZ, knockForce, enemyX, enemyZ) => {
+    // Check if joiner can block with shield
+    const pp = player.getPosition()
+    const attackOrigin = new Vector3(enemyX, pp.y, enemyZ)
+    if (player.canBlockFrom(attackOrigin)) {
+      const bounceDir = new Vector3(knockX, 0, knockZ)
+      player.shieldBounce(bounceDir, 60)
+      return
+    }
     const knockDir = new Vector3(knockX, 0, knockZ)
     player.knockBack(knockDir, knockForce)
     const dmg = inventory.hasBuff('armor') ? Math.max(1, Math.floor(amount / 2)) : amount
@@ -456,6 +464,107 @@ async function startGame(seed?: string) {
   let lastEnemyVersion = 0
 
   // Render loop
+  let lastBgTime = performance.now()
+
+  /** Host-only tick: run enemy AI + broadcast states. Called from render loop AND background interval. */
+  function hostTick(dt: number) {
+    const isJoinerNow = network.isConnected() && !network.isHost
+    if (isJoinerNow) return
+
+    const positions: Vector3[] = []
+    let hostIdx = -1
+    let remoteIdx = -1
+    if (!inventory.hasBuff('invisibility')) {
+      hostIdx = positions.length
+      positions.push(player.getPosition())
+    }
+    if (network.isConnected() && network.lastRemoteState) {
+      remoteIdx = positions.length
+      positions.push(new Vector3(
+        network.lastRemoteState.x,
+        network.lastRemoteState.y,
+        network.lastRemoteState.z,
+      ))
+    }
+    enemyMgr.update(dt, positions, (enemy, attackedPlayerIdx) => {
+      if (attackedPlayerIdx === remoteIdx && remoteIdx >= 0) {
+        // Enemy attacked the joiner — send damage over network
+        const rp = new Vector3(
+          network.lastRemoteState!.x,
+          network.lastRemoteState!.y,
+          network.lastRemoteState!.z,
+        )
+        const ep = enemy.getPosition()
+        const knockDir = rp.subtract(ep)
+        knockDir.y = 0
+        if (knockDir.length() > 0.01) knockDir.normalize()
+        network.send({
+          type: 'damage',
+          amount: enemy.damage,
+          knockX: knockDir.x,
+          knockZ: knockDir.z,
+          knockForce: 150,
+          enemyX: ep.x,
+          enemyZ: ep.z,
+        })
+        return
+      }
+      // Enemy attacked the host player
+      const pp = player.getPosition()
+      const lungeDir = enemyMgr.getLungeDir(enemy)
+      const attackOrigin = pp.add(lungeDir.scale(-5))
+      if (player.canBlockFrom(attackOrigin)) {
+        const bounceDir = lungeDir.clone()
+        bounceDir.y = 0
+        if (bounceDir.length() > 0.01) bounceDir.normalize()
+        player.shieldBounce(bounceDir, 60)
+        return
+      }
+      const ep = enemy.getPosition()
+      const knockDir = pp.subtract(ep)
+      knockDir.y = 0
+      if (knockDir.length() > 0.01) knockDir.normalize()
+      player.knockBack(knockDir, 150)
+      const dmg = inventory.hasBuff('armor') ? Math.max(1, Math.floor(enemy.damage / 2)) : enemy.damage
+      player.takeDamage(dmg)
+    })
+
+    // Host broadcasts enemy states
+    if (network.isHost && network.isConnected()) {
+      enemySendTimer += dt
+      if (enemySendTimer >= ENEMY_SEND_INTERVAL) {
+        enemySendTimer = 0
+        network.sendEnemies(enemyMgr.getNetStates())
+      }
+    }
+
+    // Send state to peer
+    sendTimer += dt
+    if (sendTimer >= SEND_INTERVAL && network.isConnected()) {
+      sendTimer = 0
+      const state = player.getState()
+      const summon = inventory.getSummonState()
+      if (summon) state.summon = summon
+      network.sendPosition(state)
+    }
+  }
+
+  // Background interval: keep enemy AI + net sync running when tab is hidden
+  let bgIntervalId: number | null = null
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      lastBgTime = performance.now()
+      bgIntervalId = window.setInterval(() => {
+        const now = performance.now()
+        const dt = Math.min((now - lastBgTime) / 1000, 0.05)
+        lastBgTime = now
+        hostTick(dt)
+      }, 100) // 10 Hz background tick
+    } else {
+      if (bgIntervalId !== null) { clearInterval(bgIntervalId); bgIntervalId = null }
+    }
+  })
+
   engine.runRenderLoop(() => {
     const dt = Math.min(engine!.getDeltaTime() / 1000, 0.05)
 
@@ -565,65 +674,7 @@ async function startGame(seed?: string) {
     // Enemy AI + attacks on player (horizontal distance)
     // Host runs AI; joiner applies received states
     if (!isJoiner) {
-      const positions: Vector3[] = []
-      let hostIdx = -1
-      let remoteIdx = -1
-      if (!inventory.hasBuff('invisibility')) {
-        hostIdx = positions.length
-        positions.push(player.getPosition())
-      }
-      if (network.isConnected() && network.lastRemoteState) {
-        remoteIdx = positions.length
-        positions.push(new Vector3(
-          network.lastRemoteState.x,
-          network.lastRemoteState.y,
-          network.lastRemoteState.z,
-        ))
-      }
-      enemyMgr.update(dt, positions, (enemy, attackedPlayerIdx) => {
-        if (attackedPlayerIdx === remoteIdx && remoteIdx >= 0) {
-          // Enemy attacked the joiner — send damage over network
-          const rp = new Vector3(
-            network.lastRemoteState!.x,
-            network.lastRemoteState!.y,
-            network.lastRemoteState!.z,
-          )
-          const ep = enemy.getPosition()
-          const knockDir = rp.subtract(ep)
-          knockDir.y = 0
-          if (knockDir.length() > 0.01) knockDir.normalize()
-          network.send({
-            type: 'damage',
-            amount: enemy.damage,
-            knockX: knockDir.x,
-            knockZ: knockDir.z,
-            knockForce: 150,
-          })
-          return
-        }
-        // Enemy attacked the host player
-        const pp = player.getPosition()
-        // Use lunge direction for shield check (orc stops on contact now, but direction is reliable)
-        const lungeDir = enemyMgr.getLungeDir(enemy)
-        // The attack comes FROM the lunge direction — place virtual origin in front of player
-        const attackOrigin = pp.add(lungeDir.scale(-5))
-        if (player.canBlockFrom(attackOrigin)) {
-          // Blocked — bounce player back while keeping defend pose
-          const bounceDir = lungeDir.clone()
-          bounceDir.y = 0
-          if (bounceDir.length() > 0.01) bounceDir.normalize()
-          player.shieldBounce(bounceDir, 60)
-          return
-        }
-        // Knockback player away from enemy
-        const ep = enemy.getPosition()
-        const knockDir = pp.subtract(ep)
-        knockDir.y = 0
-        if (knockDir.length() > 0.01) knockDir.normalize()
-        player.knockBack(knockDir, 150)
-        const dmg = inventory.hasBuff('armor') ? Math.max(1, Math.floor(enemy.damage / 2)) : enemy.damage
-        player.takeDamage(dmg)
-      })
+      hostTick(dt)
     } else if (network.lastEnemyStates && network.enemyStatesVersion !== lastEnemyVersion) {
       lastEnemyVersion = network.enemyStatesVersion
       enemyMgr.applyNetStates(network.lastEnemyStates)
@@ -652,22 +703,15 @@ async function startGame(seed?: string) {
 
     updateHearts()
 
-    // Send state to peer
-    sendTimer += dt
-    if (sendTimer >= SEND_INTERVAL && network.isConnected()) {
-      sendTimer = 0
-      const state = player.getState()
-      const summon = inventory.getSummonState()
-      if (summon) state.summon = summon
-      network.sendPosition(state)
-    }
-
-    // Host broadcasts enemy states
-    if (network.isHost && network.isConnected()) {
-      enemySendTimer += dt
-      if (enemySendTimer >= ENEMY_SEND_INTERVAL) {
-        enemySendTimer = 0
-        network.sendEnemies(enemyMgr.getNetStates())
+    // Send state to peer (joiner sends from here; host sends from hostTick)
+    if ((network.isConnected() && !network.isHost)) {
+      sendTimer += dt
+      if (sendTimer >= SEND_INTERVAL) {
+        sendTimer = 0
+        const state = player.getState()
+        const summon = inventory.getSummonState()
+        if (summon) state.summon = summon
+        network.sendPosition(state)
       }
     }
 

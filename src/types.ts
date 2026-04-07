@@ -39,4 +39,4 @@ export type NetMessage =
   | { type: 'groundItem'; itemId: string; x: number; y: number; z: number; uid: number }
   | { type: 'pickItem'; uid: number }
   | { type: 'spell'; spell: string; x: number; y: number; z: number; dx: number; dy: number; dz: number; damage?: number }
-  | { type: 'damage'; amount: number; knockX: number; knockZ: number; knockForce: number }
+  | { type: 'damage'; amount: number; knockX: number; knockZ: number; knockForce: number; enemyX: number; enemyZ: number }
